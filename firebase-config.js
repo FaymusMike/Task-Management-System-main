@@ -39,6 +39,18 @@ function getFirebaseConfig() {
         console.warn('Unable to read firebaseConfig from localStorage:', error);
     }
 
+    // Optional fallback from a global JSON string (useful for static hosts/env injection).
+    try {
+        if (typeof window.__FIREBASE_CONFIG_JSON__ === 'string') {
+            const parsed = JSON.parse(window.__FIREBASE_CONFIG_JSON__);
+            if (isValidFirebaseConfig(parsed)) {
+                return parsed;
+            }
+        }
+    } catch (error) {
+        console.warn('Unable to parse window.__FIREBASE_CONFIG_JSON__:', error);
+    }
+
     return null;
 }
 
@@ -51,11 +63,10 @@ if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length ===
         window.__FIREBASE_READY__ = true;
     } else {
         console.error(
-            'Firebase is not configured. Add firebase-config.local.js (recommended) or define window.__FIREBASE_CONFIG__ before loading firebase-config.js.'
+            'Firebase is not configured. Define window.__FIREBASE_CONFIG__ (or window.__FIREBASE_CONFIG_JSON__) before loading firebase-config.js.'
         );
     }
 }
 
 // Expose config if needed by other scripts.
 window.firebaseConfig = firebaseConfig;
-

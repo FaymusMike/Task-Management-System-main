@@ -95,3 +95,35 @@ window.__FIREBASE_CONFIG__ = {
 
 2. Include that file before `firebase-config.js` in each HTML page (or inject it inline).
 3. Rotate the leaked API key from Google Cloud Console and restrict the new key to allowed referrers and required APIs only.
+
+
+### Netlify deployment (important)
+`firebase-config.local.js` is intentionally gitignored, so Netlify **cannot** load it from your GitHub deploy.
+
+Use one of these options:
+
+1. Add this inline script in each HTML file **before** `firebase-config.js`:
+
+```html
+<script>
+  window.__FIREBASE_CONFIG__ = {
+    apiKey: '...',
+    authDomain: '...',
+    databaseURL: '...',
+    projectId: '...',
+    storageBucket: '...',
+    messagingSenderId: '...',
+    appId: '...'
+  };
+</script>
+```
+
+2. Or inject `window.__FIREBASE_CONFIG_JSON__` at build/runtime and parse it in `firebase-config.js`.
+
+Also enable these providers in Firebase Console > Authentication:
+- Email/Password
+- Google
+
+And add your production domain (for example `https://taskbyuv.netlify.app`) to:
+- Authentication > Settings > Authorized domains
+- Google Cloud API key HTTP referrer restrictions

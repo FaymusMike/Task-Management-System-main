@@ -11,30 +11,50 @@ let notifications = [];
 function ensureFirebaseReady() {
     const isReady = typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
     if (!isReady) {
-        throw new Error('Firebase is not configured. Create firebase-config.local.js and include your Firebase project credentials.');
+        throw new Error('Firebase is not configured. Define window.__FIREBASE_CONFIG__ before loading the app.');
     }
 }
 
 
 // ==================== AUTHENTICATION FUNCTIONS ====================
+
+function getReadableAuthError(error) {
+    const authErrors = {
+        'auth/invalid-email': 'Invalid email address format.',
+        'auth/user-disabled': 'This account has been disabled.',
+        'auth/user-not-found': 'No account found for this email.',
+        'auth/wrong-password': 'Incorrect password.',
+        'auth/email-already-in-use': 'This email is already registered.',
+        'auth/weak-password': 'Password is too weak. Use at least 8 characters.',
+        'auth/popup-closed-by-user': 'Google sign-in popup was closed before completing sign-in.',
+        'auth/network-request-failed': 'Network error. Please check your connection and try again.'
+    };
+
+    if (!error) return 'Authentication failed.';
+    return authErrors[error.code] || error.message || 'Authentication failed.';
+}
+
 async function loginUser(email, password) {
     ensureFirebaseReady();
     try {
+        await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
         await loadUserData();
         
         // Check if email needs verification
         if (!currentUser.emailVerified) {
-            Notiflix.Notify.warning('Please verify your email address');
+            await currentUser.sendEmailVerification();
+            await firebase.auth().signOut();
+            throw new Error('Email not verified. We sent a new verification link to your inbox.');
         }
-        
+
         // Check role and redirect
         await checkUserRoleAndRedirect(currentUser.uid);
         
         return userCredential;
     } catch (error) {
-        throw error;
+        throw new Error(getReadableAuthError(error));
     }
 }
 
@@ -92,7 +112,9 @@ async function registerUser(firstName, lastName, email, password) {
 async function loginWithGoogle() {
     ensureFirebaseReady();
     try {
+        await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
         const userCredential = await firebase.auth().signInWithPopup(provider);
         currentUser = userCredential.user;
         
@@ -143,7 +165,7 @@ async function loginWithGoogle() {
         
         return userCredential;
     } catch (error) {
-        throw error;
+        throw new Error(getReadableAuthError(error));
     }
 }
 
@@ -753,6 +775,7 @@ async function adminLogin(email, password, secretKey) {
     ensureFirebaseReady();
     try {
         // First login with Firebase Auth
+        await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
         
@@ -767,7 +790,7 @@ async function adminLogin(email, password, secretKey) {
         
         // Check secret key for initial admin setup
         if (userData.role !== 'admin') {
-            const adminSecretKey = 'TASKFLOW_ADMIN_SECRET'; // In production, store this securely
+            const adminSecretKey = window.__ADMIN_SECRET__ || 'TASKFLOW_ADMIN_SECRET';
             
             if (secretKey !== adminSecretKey) {
                 await firebase.auth().signOut();
@@ -923,22 +946,21 @@ function showNotification(message, type = 'info') {
     }
 }
 
-function checkUserRoleAndRedirect(userId) {
+async function checkUserRoleAndRedirect(userId) {
     ensureFirebaseReady();
-    firebase.firestore().collection('users').doc(userId).get()
-        .then((doc) => {
-            if (doc.exists) {
-                const userData = doc.data();
-                if (userData.role === 'admin') {
-                    window.location.href = 'admin-dashboard.html';
-                } else {
-                    window.location.href = 'dashboard.html';
-                }
-            }
-        })
-        .catch((error) => {
-            console.error('Error checking user role:', error);
-        });
+    try {
+        const doc = await firebase.firestore().collection('users').doc(userId).get();
+        if (!doc.exists) return;
+
+        const roleData = doc.data();
+        if (roleData.role === 'admin') {
+            window.location.href = 'admin-dashboard.html';
+        } else {
+            window.location.href = 'dashboard.html';
+        }
+    } catch (error) {
+        console.error('Error checking user role:', error);
+    }
 }
 
 function updateUIForRole() {
