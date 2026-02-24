@@ -158,65 +158,88 @@
     </div>
 
     <!-- Scripts -->
-    <!-- Replace ALL these CDN links: -->
+    <!-- First: Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+
+    <!-- Second: Configuration (critical for Firebase) -->
+    <script src="init.js"></script>
+
+    <!-- Third: Firebase config (depends on init.js) -->
     <script src="firebase-config.js"></script>
+
+    <!-- Fourth: Other libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+
+    <!-- Fifth: App scripts (depend on Firebase) -->
+    <script src="cloudinary-upload.js"></script>
     <script src="app.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const adminLoginForm = document.getElementById('admin-login-form');
-            const adminLoginBtn = document.getElementById('admin-login-btn');
-            const adminLoginText = document.getElementById('admin-login-text');
-            const adminLoginSpinner = document.getElementById('admin-login-spinner');
-            
-            // Check if user is already logged in as admin
-            if (window.__FIREBASE_READY__) {
-                firebase.auth().onAuthStateChanged(async (user) => {
-                    if (user) {
-                        const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
-                        if (userDoc.exists && userDoc.data().role === 'admin') {
-                            window.location.href = 'admin-dashboard.html';
-                        }
-                    }
-                });
-            } else {
-                Notiflix.Notify.warning('Firebase is not configured yet. Set window.__FIREBASE_CONFIG__ to enable admin login.');
-            }
-
-            // Form submission
-            adminLoginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const email = document.getElementById('admin-email').value;
-                const password = document.getElementById('admin-password').value;
-                const secretKey = document.getElementById('admin-secret').value;
-                
-                // Show loading state
-                adminLoginText.style.display = 'none';
-                adminLoginSpinner.style.display = 'inline-block';
-                adminLoginBtn.disabled = true;
-                
+    document.addEventListener('DOMContentLoaded', async function() {
+        const adminLoginForm = document.getElementById('admin-login-form');
+        const adminLoginBtn = document.getElementById('admin-login-btn');
+        const adminLoginText = document.getElementById('admin-login-text');
+        const adminLoginSpinner = document.getElementById('admin-login-spinner');
+        
+        // Wait for Firebase to be ready
+        try {
+            await waitForFirebase();
+        } catch (error) {
+            Notiflix.Notify.failure('Firebase initialization failed. Please refresh the page.');
+            return;
+        }
+        
+        // Check if user is already logged in as admin
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (user) {
                 try {
-                    await adminLogin(email, password, secretKey);
+                    const userDoc = await firebase.firestore()
+                        .collection('users')
+                        .doc(user.uid)
+                        .get();
+                        
+                    if (userDoc.exists && userDoc.data().role === 'admin') {
+                        window.location.href = 'admin-dashboard.html';
+                    }
                 } catch (error) {
-                    showError(error.message);
-                } finally {
-                    // Hide loading state
-                    adminLoginText.style.display = 'inline';
-                    adminLoginSpinner.style.display = 'none';
-                    adminLoginBtn.disabled = false;
+                    console.error('Auth check error:', error);
                 }
-            });
-            
-            function showError(message) {
-                Notiflix.Notify.failure(message);
             }
         });
+
+        // Form submission
+        adminLoginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value;
+            const secretKey = document.getElementById('admin-secret').value.trim();
+            
+            // Validate inputs
+            if (!email || !password || !secretKey) {
+                Notiflix.Notify.failure('All fields are required');
+                return;
+            }
+            
+            // Show loading state
+            adminLoginText.style.display = 'none';
+            adminLoginSpinner.style.display = 'inline-block';
+            adminLoginBtn.disabled = true;
+            
+            try {
+                await adminLogin(email, password, secretKey);
+            } catch (error) {
+                Notiflix.Notify.failure(error.message || 'Admin login failed');
+            } finally {
+                adminLoginText.style.display = 'inline';
+                adminLoginSpinner.style.display = 'none';
+                adminLoginBtn.disabled = false;
+            }
+        });
+    });
     </script>
 </body>
 </html>

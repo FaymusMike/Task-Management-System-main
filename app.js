@@ -1,4 +1,37 @@
-// app.js - All application logic in one file
+// app.js - Add this at the very top
+(function() {
+    // Wait for Firebase to be ready
+    function waitForFirebase(maxAttempts = 50) {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            
+            const check = () => {
+                attempts++;
+                
+                if (window.__FIREBASE_READY__ && 
+                    typeof firebase !== 'undefined' && 
+                    firebase.apps.length > 0) {
+                    console.log('Firebase ready, proceeding...');
+                    resolve();
+                    return;
+                }
+                
+                if (attempts >= maxAttempts) {
+                    reject(new Error('Firebase initialization timeout'));
+                    return;
+                }
+                
+                setTimeout(check, 100);
+            };
+            
+            check();
+        });
+    }
+    
+    // Export for other functions
+    window.waitForFirebase = waitForFirebase;
+})();
+
 
 // ==================== GLOBAL VARIABLES ====================
 let currentUser = null;
@@ -8,11 +41,17 @@ let teams = [];
 let notifications = [];
 
 
+// Modified ensureFirebaseReady function
 function ensureFirebaseReady() {
-    const isReady = typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
-    if (!isReady) {
-        throw new Error('Firebase is not configured. Define window.__FIREBASE_CONFIG__ before loading the app.');
+    if (!window.__FIREBASE_READY__ || 
+        typeof firebase === 'undefined' || 
+        firebase.apps.length === 0) {
+        
+        const error = new Error('Firebase is not initialized. Please check your configuration.');
+        error.code = 'firebase/not-initialized';
+        throw error;
     }
+    return true;
 }
 
 
@@ -773,39 +812,75 @@ async function getActivityLogs(limit = 50) {
 // ==================== ADMIN FUNCTIONS ====================
 async function adminLogin(email, password, secretKey) {
     ensureFirebaseReady();
+    
+    // Validate secret key
+    const validSecret = window.__ADMIN_SECRET__ || 'TASKFLOW_ADMIN_SECRET_2024';
+    if (secretKey !== validSecret) {
+        throw new Error('Invalid admin secret key');
+    }
+    
     try {
-        // First login with Firebase Auth
         await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
         
-        // Check if user is admin in Firestore
-        const userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+        // Check if user exists in Firestore
+        const userDoc = await firebase.firestore()
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
         
         if (!userDoc.exists) {
-            throw new Error('Admin account not found');
-        }
-        
-        const userData = userDoc.data();
-        
-        // Check secret key for initial admin setup
-        if (userData.role !== 'admin') {
-            const adminSecretKey = window.__ADMIN_SECRET__ || 'TASKFLOW_ADMIN_SECRET';
+            // Create admin user document
+            await firebase.firestore().collection('users').doc(currentUser.uid).set({
+                email: email,
+                displayName: email.split('@')[0],
+                role: 'admin',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+                settings: {
+                    theme: 'light',
+                    notifications: true
+                }
+            });
+        } else {
+            // Update last login
+            await firebase.firestore().collection('users').doc(currentUser.uid).update({
+                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+            });
             
-            if (secretKey !== adminSecretKey) {
+            // Verify admin role
+            if (userDoc.data().role !== 'admin') {
                 await firebase.auth().signOut();
-                throw new Error('Invalid admin secret key');
+                throw new Error('User does not have admin privileges');
             }
-            
-            // Upgrade to admin
-            await upgradeUserRole(currentUser.uid, 'admin');
         }
         
         await loadUserData();
+        
+        // Log admin login
+        await addActivityLog({
+            userId: currentUser.uid,
+            action: 'admin_login',
+            details: 'Admin logged in',
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        Notiflix.Notify.success('Admin login successful');
         window.location.href = 'admin-dashboard.html';
         
     } catch (error) {
-        throw error;
+        console.error('Admin login error:', error);
+        
+        // Provide user-friendly error messages
+        const errorMessages = {
+            'auth/user-not-found': 'Admin account not found',
+            'auth/wrong-password': 'Invalid password',
+            'auth/invalid-email': 'Invalid email format',
+            'auth/user-disabled': 'This account has been disabled'
+        };
+        
+        throw new Error(errorMessages[error.code] || error.message || 'Admin login failed');
     }
 }
 
