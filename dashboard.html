@@ -376,8 +376,26 @@
     <script src="app.js"></script>
     
     <script>
-        // Dashboard-specific functionality
         document.addEventListener('DOMContentLoaded', async function() {
+            // Wait for Firebase and currentUser to be ready
+            if (!window.__FIREBASE_READY__) {
+                console.error('Firebase not ready');
+                return;
+            }
+            
+            // Wait for currentUser to be set
+            let attempts = 0;
+            while (!currentUser && attempts < 20) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            if (!currentUser) {
+                console.error('No current user found');
+                window.location.href = 'login.html';
+                return;
+            }
+            
             // Set current date
             const now = new Date();
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
@@ -643,29 +661,49 @@
         }
         
         function setupRealtimeDashboardUpdates() {
-            // Real-time task updates
-            firebase.firestore().collection('tasks')
-                .where('ownerId', '==', currentUser.uid)
-                .onSnapshot((snapshot) => {
-                    const updatedTasks = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    updateStats(updatedTasks);
-                    renderRecentTasks(updatedTasks.slice(0, 5));
-                });
+            // Check if currentUser exists before setting up listeners
+            if (!currentUser || !currentUser.uid) {
+                console.log('No current user, skipping realtime updates');
+                return;
+            }
             
-            // Real-time notifications
-            firebase.firestore().collection('notifications')
-                .where('userId', '==', currentUser.uid)
-                .orderBy('createdAt', 'desc')
-                .limit(10)
-                .onSnapshot((snapshot) => {
-                    const unreadCount = snapshot.docs.filter(doc => !doc.data().read).length;
-                    const badge = document.getElementById('notification-badge');
-                    badge.textContent = unreadCount;
-                    badge.style.display = unreadCount > 0 ? 'flex' : 'none';
-                });
+            try {
+                // Real-time task updates
+                firebase.firestore().collection('tasks')
+                    .where('ownerId', '==', currentUser.uid)
+                    .onSnapshot((snapshot) => {
+                        const updatedTasks = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data()
+                        }));
+                        if (typeof updateStats === 'function') {
+                            updateStats(updatedTasks);
+                        }
+                        if (typeof renderRecentTasks === 'function') {
+                            renderRecentTasks(updatedTasks.slice(0, 5));
+                        }
+                    }, (error) => {
+                        console.error('Error in tasks snapshot:', error);
+                    });
+                
+                // Real-time notifications
+                firebase.firestore().collection('notifications')
+                    .where('userId', '==', currentUser.uid)
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .onSnapshot((snapshot) => {
+                        const unreadCount = snapshot.docs.filter(doc => !doc.data().read).length;
+                        const badge = document.getElementById('notification-badge');
+                        if (badge) {
+                            badge.textContent = unreadCount;
+                            badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+                        }
+                    }, (error) => {
+                        console.error('Error in notifications snapshot:', error);
+                    });
+            } catch (error) {
+                console.error('Error setting up realtime updates:', error);
+            }
         }
         
         async function handleTaskFormSubmit(form) {

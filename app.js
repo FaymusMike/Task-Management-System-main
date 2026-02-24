@@ -278,15 +278,27 @@ async function loadUserData() {
             userData = userDoc.data();
             userData.id = userDoc.id;
             
-            // Load notifications
-            await loadNotifications();
+            // Load notifications with error handling
+            try {
+                await loadNotifications();
+            } catch (notifError) {
+                console.warn('Could not load notifications:', notifError);
+            }
             
-            // Load tasks
-            await loadTasks();
+            // Load tasks with error handling
+            try {
+                await loadTasks();
+            } catch (tasksError) {
+                console.warn('Could not load tasks:', tasksError);
+            }
             
             // Load teams if user is in any
             if (userData.role === 'lead' || userData.role === 'member') {
-                await loadTeams();
+                try {
+                    await loadTeams();
+                } catch (teamsError) {
+                    console.warn('Could not load teams:', teamsError);
+                }
             }
             
             // Set theme
@@ -296,7 +308,8 @@ async function loadUserData() {
         }
     } catch (error) {
         console.error('Error loading user data:', error);
-        throw error;
+        // Return partial data if available
+        return userData;
     }
 }
 
@@ -754,12 +767,36 @@ async function loadNotifications() {
     if (!currentUser) return [];
     
     try {
-        const snapshot = await firebase.firestore()
-            .collection('notifications')
-            .where('userId', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .limit(50)
-            .get();
+        // Try without orderBy first to avoid index errors
+        let snapshot;
+        try {
+            snapshot = await firebase.firestore()
+                .collection('notifications')
+                .where('userId', '==', currentUser.uid)
+                .orderBy('createdAt', 'desc')
+                .limit(50)
+                .get();
+        } catch (indexError) {
+            console.warn('Index not ready, falling back to unordered query');
+            // Fallback to unordered query
+            snapshot = await firebase.firestore()
+                .collection('notifications')
+                .where('userId', '==', currentUser.uid)
+                .limit(50)
+                .get();
+            
+            // Sort manually
+            const docs = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            notifications = docs.sort((a, b) => {
+                const dateA = a.createdAt?.toDate?.() || new Date(0);
+                const dateB = b.createdAt?.toDate?.() || new Date(0);
+                return dateB - dateA;
+            });
+            return notifications;
+        }
         
         notifications = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -769,7 +806,8 @@ async function loadNotifications() {
         return notifications;
     } catch (error) {
         console.error('Error loading notifications:', error);
-        throw error;
+        // Don't throw, just return empty array
+        return [];
     }
 }
 
