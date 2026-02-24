@@ -7,8 +7,18 @@ let tasks = [];
 let teams = [];
 let notifications = [];
 
+
+function ensureFirebaseReady() {
+    const isReady = typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
+    if (!isReady) {
+        throw new Error('Firebase is not configured. Create firebase-config.local.js and include your Firebase project credentials.');
+    }
+}
+
+
 // ==================== AUTHENTICATION FUNCTIONS ====================
 async function loginUser(email, password) {
+    ensureFirebaseReady();
     try {
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
@@ -29,6 +39,7 @@ async function loginUser(email, password) {
 }
 
 async function registerUser(firstName, lastName, email, password) {
+    ensureFirebaseReady();
     try {
         const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
@@ -79,6 +90,7 @@ async function registerUser(firstName, lastName, email, password) {
 }
 
 async function loginWithGoogle() {
+    ensureFirebaseReady();
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
         const userCredential = await firebase.auth().signInWithPopup(provider);
@@ -136,6 +148,7 @@ async function loginWithGoogle() {
 }
 
 async function logoutUser() {
+    ensureFirebaseReady();
     try {
         await firebase.auth().signOut();
         currentUser = null;
@@ -152,6 +165,7 @@ async function logoutUser() {
 
 // ==================== USER DATA MANAGEMENT ====================
 async function loadUserData() {
+    ensureFirebaseReady();
     if (!currentUser) return null;
     
     try {
@@ -736,6 +750,7 @@ async function getActivityLogs(limit = 50) {
 
 // ==================== ADMIN FUNCTIONS ====================
 async function adminLogin(email, password, secretKey) {
+    ensureFirebaseReady();
     try {
         // First login with Firebase Auth
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
@@ -909,6 +924,7 @@ function showNotification(message, type = 'info') {
 }
 
 function checkUserRoleAndRedirect(userId) {
+    ensureFirebaseReady();
     firebase.firestore().collection('users').doc(userId).get()
         .then((doc) => {
             if (doc.exists) {
@@ -1030,6 +1046,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const savedTheme = localStorage.getItem('theme') || 'light';
     setTheme(savedTheme);
     
+    if (!(typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0)) {
+        console.warn('Firebase is not initialized. Auth-dependent features are disabled until configuration is provided.');
+        return;
+    }
+    
     // Check auth state
     firebase.auth().onAuthStateChanged(async (user) => {
         if (user) {
@@ -1057,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ==================== REALTIME LISTENERS ====================
 function setupRealtimeListeners() {
-    if (!currentUser) return;
+    if (!currentUser || !(typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0)) return;
     
     // Listen for task updates
     firebase.firestore()

@@ -199,6 +199,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+    <script src="firebase-config.local.js"></script>
     <script src="firebase-config.js"></script>
     <script src="app.js"></script>
     <script>
@@ -214,11 +215,13 @@
             const passwordMatch = document.getElementById('password-match');
             
             // Check if user is already logged in
-            firebase.auth().onAuthStateChanged((user) => {
-                if (user) {
-                    checkUserRoleAndRedirect(user.uid);
-                }
-            });
+            if (window.__FIREBASE_READY__) {
+                firebase.auth().onAuthStateChanged((user) => {
+                    if (user) {
+                        checkUserRoleAndRedirect(user.uid);
+                    }
+                });
+            }
             
             // Password strength checker
             passwordInput.addEventListener('input', function() {

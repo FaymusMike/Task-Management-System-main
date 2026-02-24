@@ -163,6 +163,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+    <script src="firebase-config.local.js"></script>
     <script src="firebase-config.js"></script>
     <script src="app.js"></script>
     <script>
@@ -173,15 +174,19 @@
             const adminLoginSpinner = document.getElementById('admin-login-spinner');
             
             // Check if user is already logged in as admin
-            firebase.auth().onAuthStateChanged(async (user) => {
-                if (user) {
-                    const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
-                    if (userDoc.exists && userDoc.data().role === 'admin') {
-                        window.location.href = 'admin-dashboard.html';
+            if (window.__FIREBASE_READY__) {
+                firebase.auth().onAuthStateChanged(async (user) => {
+                    if (user) {
+                        const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                        if (userDoc.exists && userDoc.data().role === 'admin') {
+                            window.location.href = 'admin-dashboard.html';
+                        }
                     }
-                }
-            });
-            
+                });
+            } else {
+                Notiflix.Notify.warning('Firebase is not configured yet. Add firebase-config.local.js to enable admin login.');
+            }
+                        
             // Form submission
             adminLoginForm.addEventListener('submit', async function(e) {
                 e.preventDefault();

@@ -192,25 +192,28 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+    <script src="firebase-config.local.js"></script>
     <script src="firebase-config.js"></script>
     <script>
         // Check if user is already logged in
-        firebase.auth().onAuthStateChanged((user) => {
-            if (user) {
-                // Check user role and redirect accordingly
-                firebase.firestore().collection('users').doc(user.uid).get()
-                    .then((doc) => {
-                        if (doc.exists) {
-                            const userData = doc.data();
-                            if (userData.role === 'admin') {
-                                window.location.href = 'admin-dashboard.html';
-                            } else {
-                                window.location.href = 'dashboard.html';
+        if (window.__FIREBASE_READY__) {
+            firebase.auth().onAuthStateChanged((user) => {
+                if (user) {
+                    // Check user role and redirect accordingly
+                    firebase.firestore().collection('users').doc(user.uid).get()
+                        .then((doc) => {
+                            if (doc.exists) {
+                                const userData = doc.data();
+                                if (userData.role === 'admin') {
+                                    window.location.href = 'admin-dashboard.html';
+                                } else {
+                                    window.location.href = 'dashboard.html';
+                                }
                             }
-                        }
-                    });
-            }
-        });
+                        });
+                }
+            });
+        }
     </script>
 </body>
 </html>
