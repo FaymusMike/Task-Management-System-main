@@ -192,92 +192,123 @@
     <!-- Fifth: App scripts (depend on Firebase) -->
     <script src="cloudinary-upload.js"></script>
     <script src="app.js"></script>
-    <script>
-        // Initialize when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            const loginForm = document.getElementById('login-form');
-            const loginBtn = document.getElementById('login-btn');
-            const loginText = document.getElementById('login-text');
-            const loginSpinner = document.getElementById('login-spinner');
-            const googleLoginBtn = document.getElementById('google-login-btn');
-            const forgotPasswordLink = document.getElementById('forgot-password-link');
-            
-            // Check if user is already logged in
-            if (window.__FIREBASE_READY__) {
-                firebase.auth().onAuthStateChanged((user) => {
-                    if (user) {
-                        checkUserRoleAndRedirect(user.uid);
-                    }
-                });
-            } else {
-                Notiflix.Notify.warning('Firebase is not configured yet. Set window.__FIREBASE_CONFIG__ to enable login.');
-            }
-            
-            // Email/Password Login
-            loginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                
-                // Show loading state
-                loginText.style.display = 'none';
-                loginSpinner.style.display = 'inline-block';
-                loginBtn.disabled = true;
-                
-                try {
-                    await loginUser(email, password);
-                } catch (error) {
-                    showError(error.message);
-                } finally {
-                    // Hide loading state
-                    loginText.style.display = 'inline';
-                    loginSpinner.style.display = 'none';
-                    loginBtn.disabled = false;
-                }
-            });
-            
-            // Google Login
-            googleLoginBtn.addEventListener('click', async function() {
-                try {
-                    await loginWithGoogle();
-                } catch (error) {
-                    showError(error.message);
-                }
-            });
-            
-            // Forgot Password
-            forgotPasswordLink.addEventListener('click', function(e) {
-                e.preventDefault();
-                const email = document.getElementById('email').value;
-                
-                if (!email) {
-                    showError('Please enter your email address first');
-                    return;
-                }
-                
-                if (!window.__FIREBASE_READY__) {
-                    showError('Firebase is not configured. Set window.__FIREBASE_CONFIG__ first.');
-                    return;
-                }
 
-                firebase.auth().sendPasswordResetEmail(email)
-                    .then(() => {
-                        showSuccess('Password reset email sent! Check your inbox.');
-                    })
-                    .catch((error) => {
-                        showError(error.message);
-                    });
-            });
-            
-            function showError(message) {
-                Notiflix.Notify.failure(message);
-            }
-            
-            function showSuccess(message) {
-                Notiflix.Notify.success(message);
+    <script>
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', async function() {
+        const loginForm = document.getElementById('login-form');
+        const loginBtn = document.getElementById('login-btn');
+        const loginText = document.getElementById('login-text');
+        const loginSpinner = document.getElementById('login-spinner');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const forgotPasswordLink = document.getElementById('forgot-password-link');
+        const authCard = document.querySelector('.auth-card');
+        
+        // Check if Firebase is ready
+        if (!window.__FIREBASE_READY__) {
+            Notiflix.Notify.warning('Firebase is not configured yet. Please check your configuration.');
+            return;
+        }
+        
+        // Check if user is already logged in
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                console.log('User already logged in:', user.email);
+                
+                // Show notification
+                Notiflix.Notify.info('You are already logged in. You can go to dashboard or continue browsing.', {
+                    timeout: 4000,
+                    clickToClose: true
+                });
+                
+                // Add dashboard button if not already present
+                if (!document.getElementById('goto-dashboard-btn')) {
+                    const dashboardBtn = document.createElement('button');
+                    dashboardBtn.id = 'goto-dashboard-btn';
+                    dashboardBtn.className = 'btn btn-success w-100 mt-2';
+                    dashboardBtn.innerHTML = '<i class="bi bi-speedometer2"></i> Go to Dashboard';
+                    dashboardBtn.onclick = () => {
+                        checkUserRoleAndRedirect(user.uid);
+                    };
+                    
+                    // Insert after the Google button
+                    const googleBtn = document.getElementById('google-login-btn');
+                    if (googleBtn && googleBtn.parentNode) {
+                        googleBtn.parentNode.insertBefore(dashboardBtn, googleBtn.nextSibling);
+                    } else {
+                        authCard.appendChild(dashboardBtn);
+                    }
+                }
             }
         });
+        
+        // Email/Password Login
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showError('Please enter both email and password');
+                return;
+            }
+            
+            // Show loading state
+            loginText.style.display = 'none';
+            loginSpinner.style.display = 'inline-block';
+            loginBtn.disabled = true;
+            
+            try {
+                await loginUser(email, password);
+                // loginUser will handle redirect on success
+            } catch (error) {
+                showError(error.message);
+                // Hide loading state
+                loginText.style.display = 'inline';
+                loginSpinner.style.display = 'none';
+                loginBtn.disabled = false;
+            }
+        });
+        
+        // Google Login
+        googleLoginBtn.addEventListener('click', async function() {
+            try {
+                await loginWithGoogle();
+                // loginWithGoogle will handle redirect on success
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+        
+        // Forgot Password
+        forgotPasswordLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            
+            if (!email) {
+                showError('Please enter your email address first');
+                return;
+            }
+            
+            firebase.auth().sendPasswordResetEmail(email)
+                .then(() => {
+                    showSuccess('Password reset email sent! Check your inbox.');
+                })
+                .catch((error) => {
+                    const errorMessage = getReadableAuthError(error);
+                    showError(errorMessage);
+                });
+        });
+        
+        function showError(message) {
+            Notiflix.Notify.failure(message);
+        }
+        
+        function showSuccess(message) {
+            Notiflix.Notify.success(message);
+        }
+    });
     </script>
 </body>
 </html>

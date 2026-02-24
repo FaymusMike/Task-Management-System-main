@@ -213,126 +213,149 @@
     <!-- Fifth: App scripts (depend on Firebase) -->
     <script src="cloudinary-upload.js"></script>
     <script src="app.js"></script>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const registerForm = document.getElementById('register-form');
-            const registerBtn = document.getElementById('register-btn');
-            const registerText = document.getElementById('register-text');
-            const registerSpinner = document.getElementById('register-spinner');
-            const googleRegisterBtn = document.getElementById('google-register-btn');
-            const passwordInput = document.getElementById('password');
-            const confirmPasswordInput = document.getElementById('confirmPassword');
-            const passwordStrength = document.getElementById('password-strength');
-            const passwordMatch = document.getElementById('password-match');
-            
-            // Check if user is already logged in
-            if (window.__FIREBASE_READY__) {
-                firebase.auth().onAuthStateChanged((user) => {
-                    if (user) {
-                        checkUserRoleAndRedirect(user.uid);
-                    }
+    document.addEventListener('DOMContentLoaded', function() {
+        const registerForm = document.getElementById('register-form');
+        const registerBtn = document.getElementById('register-btn');
+        const registerText = document.getElementById('register-text');
+        const registerSpinner = document.getElementById('register-spinner');
+        const googleRegisterBtn = document.getElementById('google-register-btn');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const passwordStrength = document.getElementById('password-strength');
+        const passwordMatch = document.getElementById('password-match');
+        const authCard = document.querySelector('.auth-card');
+        
+        // Check if Firebase is ready
+        if (!window.__FIREBASE_READY__) {
+            Notiflix.Notify.warning('Firebase is not configured yet. Please check your configuration.');
+            return;
+        }
+        
+        // Check if user is already logged in
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                console.log('User already logged in:', user.email);
+                
+                // Show notification
+                Notiflix.Notify.info('You are already logged in. Redirecting to dashboard...', {
+                    timeout: 2000,
+                    clickToClose: true
                 });
-            }
-            
-            // Password strength checker
-            passwordInput.addEventListener('input', function() {
-                const password = this.value;
-                let strength = 'Weak';
-                let strengthClass = 'strength-weak';
                 
-                if (password.length >= 8) {
-                    strength = 'Medium';
-                    strengthClass = 'strength-medium';
-                    
-                    if (password.match(/[a-z]/) && password.match(/[A-Z]/) && password.match(/[0-9]/) && password.match(/[^a-zA-Z0-9]/)) {
-                        strength = 'Strong';
-                        strengthClass = 'strength-strong';
-                    }
-                }
-                
-                passwordStrength.textContent = `Password strength: ${strength}`;
-                passwordStrength.className = `password-strength ${strengthClass}`;
-                
-                // Check password match
-                checkPasswordMatch();
-            });
-            
-            // Password match checker
-            confirmPasswordInput.addEventListener('input', checkPasswordMatch);
-            
-            function checkPasswordMatch() {
-                const password = passwordInput.value;
-                const confirmPassword = confirmPasswordInput.value;
-                
-                if (!confirmPassword) {
-                    passwordMatch.textContent = '';
-                    return;
-                }
-                
-                if (password === confirmPassword) {
-                    passwordMatch.textContent = '✓ Passwords match';
-                    passwordMatch.className = 'password-match match-success';
-                } else {
-                    passwordMatch.textContent = '✗ Passwords do not match';
-                    passwordMatch.className = 'password-match match-error';
-                }
-            }
-            
-            // Form submission
-            registerForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const firstName = document.getElementById('firstName').value;
-                const lastName = document.getElementById('lastName').value;
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                const confirmPassword = document.getElementById('confirmPassword').value;
-                
-                // Validation
-                if (password !== confirmPassword) {
-                    showError('Passwords do not match');
-                    return;
-                }
-                
-                if (password.length < 6) {
-                    showError('Password must be at least 6 characters long');
-                    return;
-                }
-                
-                // Show loading state
-                registerText.style.display = 'none';
-                registerSpinner.style.display = 'inline-block';
-                registerBtn.disabled = true;
-                
-                try {
-                    await registerUser(firstName, lastName, email, password);
-                } catch (error) {
-                    showError(error.message);
-                } finally {
-                    // Hide loading state
-                    registerText.style.display = 'inline';
-                    registerSpinner.style.display = 'none';
-                    registerBtn.disabled = false;
-                }
-            });
-            
-            // Google Registration
-            googleRegisterBtn.addEventListener('click', async function() {
-                try {
-                    await loginWithGoogle();
-                } catch (error) {
-                    showError(error.message);
-                }
-            });
-            
-            function showError(message) {
-                Notiflix.Notify.failure(message);
-            }
-            
-            function showSuccess(message) {
-                Notiflix.Notify.success(message);
+                // Redirect after short delay
+                setTimeout(() => {
+                    checkUserRoleAndRedirect(user.uid);
+                }, 2000);
             }
         });
+        
+        // Password strength checker
+        passwordInput.addEventListener('input', function() {
+            const password = this.value;
+            let strength = 'Weak';
+            let strengthClass = 'strength-weak';
+            
+            if (password.length >= 8) {
+                strength = 'Medium';
+                strengthClass = 'strength-medium';
+                
+                if (password.match(/[a-z]/) && password.match(/[A-Z]/) && password.match(/[0-9]/) && password.match(/[^a-zA-Z0-9]/)) {
+                    strength = 'Strong';
+                    strengthClass = 'strength-strong';
+                }
+            }
+            
+            passwordStrength.textContent = `Password strength: ${strength}`;
+            passwordStrength.className = `password-strength ${strengthClass}`;
+            
+            // Check password match
+            checkPasswordMatch();
+        });
+        
+        // Password match checker
+        confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+        
+        function checkPasswordMatch() {
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            
+            if (!confirmPassword) {
+                passwordMatch.textContent = '';
+                return;
+            }
+            
+            if (password === confirmPassword) {
+                passwordMatch.textContent = '✓ Passwords match';
+                passwordMatch.className = 'password-match match-success';
+            } else {
+                passwordMatch.textContent = '✗ Passwords do not match';
+                passwordMatch.className = 'password-match match-error';
+            }
+        }
+        
+        // Form submission
+        registerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // Validation
+            if (!firstName || !lastName || !email || !password) {
+                showError('All fields are required');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showError('Passwords do not match');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError('Password must be at least 6 characters long');
+                return;
+            }
+            
+            // Show loading state
+            registerText.style.display = 'none';
+            registerSpinner.style.display = 'inline-block';
+            registerBtn.disabled = true;
+            
+            try {
+                await registerUser(firstName, lastName, email, password);
+                // registerUser will show success message and redirect to login
+            } catch (error) {
+                showError(error.message);
+                // Hide loading state
+                registerText.style.display = 'inline';
+                registerSpinner.style.display = 'none';
+                registerBtn.disabled = false;
+            }
+        });
+        
+        // Google Registration
+        googleRegisterBtn.addEventListener('click', async function() {
+            try {
+                await loginWithGoogle();
+                // loginWithGoogle will handle redirect on success
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+        
+        function showError(message) {
+            Notiflix.Notify.failure(message);
+        }
+        
+        function showSuccess(message) {
+            Notiflix.Notify.success(message);
+        }
+    });
     </script>
 </body>
 </html>

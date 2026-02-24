@@ -1,4 +1,6 @@
-// app.js - Add this at the very top
+// app.js - Complete modified version
+
+// ==================== FIREBASE READY CHECK ====================
 (function() {
     // Wait for Firebase to be ready
     function waitForFirebase(maxAttempts = 50) {
@@ -31,6 +33,46 @@
     // Export for other functions
     window.waitForFirebase = waitForFirebase;
 })();
+
+
+// ==================== PAGE TYPE UTILITIES ====================
+function isPublicPage() {
+    const currentPath = window.location.pathname;
+    const publicPages = ['/index.html', '/login.html', '/register.html', '/admin-login.html', '/', ''];
+    return publicPages.some(page => 
+        currentPath.endsWith(page) || currentPath === page
+    );
+}
+
+function isProtectedPage() {
+    const currentPath = window.location.pathname;
+    const protectedPages = [
+        '/dashboard.html', 
+        '/admin-dashboard.html', 
+        '/tasks.html', 
+        '/kanban.html', 
+        '/calendar.html', 
+        '/teams.html', 
+        '/analytics.html', 
+        '/profile.html', 
+        '/settings.html',
+        '/admin-users.html',
+        '/admin-teams.html',
+        '/admin-tasks.html',
+        '/admin-analytics.html',
+        '/admin-settings.html'
+    ];
+    return protectedPages.some(page => currentPath.includes(page));
+}
+
+function getCurrentPage() {
+    return window.location.pathname.split('/').pop() || 'index.html';
+}
+
+// Export for use in other functions
+window.isPublicPage = isPublicPage;
+window.isProtectedPage = isProtectedPage;
+window.getCurrentPage = getCurrentPage;
 
 
 // ==================== GLOBAL VARIABLES ====================
@@ -137,7 +179,7 @@ async function registerUser(firstName, lastName, email, password) {
         
         Notiflix.Notify.success('Account created successfully! Please verify your email.');
         
-        // Redirect to login
+        // Show success message and redirect to login
         setTimeout(() => {
             window.location.href = 'login.html';
         }, 2000);
@@ -381,17 +423,11 @@ async function createTask(taskData, attachments = []) {
         
         // Upload attachments if any
         if (attachments && attachments.length > 0) {
-            const uploadResults = await uploadMultipleFiles(attachments, null); // Upload without taskId first
+            const uploadResults = await uploadMultipleFiles(attachments, null);
             task.attachments = uploadResults;
         }
         
         const docRef = await firebase.firestore().collection('tasks').add(task);
-        
-        // If task has attachments and was created, update with taskId in folder
-        if (task.attachments.length > 0) {
-            // Note: Cloudinary doesn't allow moving files, so we'll keep them as-is
-            // In production, you might want to handle this differently
-        }
         
         // Update user stats
         if (task.teamId) {
@@ -1098,7 +1134,7 @@ async function uploadFile(file, taskId = null) {
     } catch (error) {
         console.error('Error uploading file:', error);
         
-        // Fallback: Try File.io as backup (free file hosting)
+        // Fallback: Try File.io as backup
         try {
             return await uploadToFileIO(file);
         } catch (fallbackError) {
@@ -1150,6 +1186,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check auth state
     firebase.auth().onAuthStateChanged(async (user) => {
+        const currentPage = getCurrentPage();
+        const isPublic = isPublicPage();
+        const isProtected = isProtectedPage();
+        
         if (user) {
             currentUser = user;
             await loadUserData();
@@ -1158,15 +1198,28 @@ document.addEventListener('DOMContentLoaded', function() {
             updateUIForRole();
             
             // Set up real-time listeners if on dashboard
-            if (window.location.pathname.includes('dashboard')) {
+            if (window.location.pathname.includes('dashboard') || 
+                window.location.pathname.includes('admin')) {
                 setupRealtimeListeners();
             }
-        } else {
-            // Redirect to login if not on auth pages
-            const authPages = ['login.html', 'register.html', 'index.html', 'admin-login.html'];
-            const currentPage = window.location.pathname.split('/').pop();
             
-            if (!authPages.includes(currentPage)) {
+            console.log(`User logged in on ${currentPage} (Public: ${isPublic})`);
+            
+            // Only auto-redirect if on login/register pages and user is already logged in
+            if (currentPage === 'login.html' || currentPage === 'register.html') {
+                console.log('On auth page with logged in user - showing dashboard option');
+                
+                // We'll let the page scripts handle showing dashboard button
+                // Don't auto-redirect, just update UI
+            }
+            
+        } else {
+            // User is signed out
+            console.log(`User signed out on ${currentPage} (Protected: ${isProtected})`);
+            
+            // Only redirect to login if on a protected page
+            if (isProtected) {
+                console.log('Protected page accessed without login, redirecting to login...');
                 window.location.href = 'login.html';
             }
         }
@@ -1254,3 +1307,6 @@ window.formatDate = formatDate;
 window.formatTimeAgo = formatTimeAgo;
 window.escapeHtml = escapeHtml;
 window.showNotification = showNotification;
+window.isPublicPage = isPublicPage;
+window.isProtectedPage = isProtectedPage;
+window.getCurrentPage = getCurrentPage;
