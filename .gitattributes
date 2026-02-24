@@ -1,0 +1,4 @@
+# Local Firebase runtime config (contains secrets)
+firebase-config.local.js
+.env
+.env.*
