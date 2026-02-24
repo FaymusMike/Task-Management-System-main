@@ -58,3 +58,4 @@ if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length ===
 
 // Expose config if needed by other scripts.
 window.firebaseConfig = firebaseConfig;
+
