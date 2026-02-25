@@ -376,6 +376,64 @@
     <script src="app.js"></script>
     
     <script>
+        // Add this helper function at the top of the dashboard.html script
+        function ensureUserData() {
+            if (!userData) {
+                console.warn('userData not available, using defaults');
+                return {
+                    role: 'member',
+                    displayName: currentUser?.email?.split('@')[0] || 'User',
+                    email: currentUser?.email || '',
+                    stats: {
+                        teamTasksCompleted: 0,
+                        groupsManaged: 0
+                    }
+                };
+            }
+            return userData;
+        }
+
+        // Update loadDashboardData function
+        async function loadDashboardData() {
+            try {
+                const safeUserData = ensureUserData();
+                
+                // Load tasks
+                let tasks = [];
+                try {
+                    tasks = await loadTasks();
+                } catch (tasksError) {
+                    console.warn('Could not load tasks:', tasksError);
+                    tasks = [];
+                }
+                
+                updateStats(tasks);
+                renderRecentTasks(tasks.slice(0, 5));
+                
+                // Load activity
+                await loadRecentActivity();
+                
+                // Load teams if user is lead/admin
+                if (safeUserData.role === 'lead' || safeUserData.role === 'admin') {
+                    try {
+                        await loadUserTeams();
+                    } catch (teamsError) {
+                        console.warn('Could not load teams:', teamsError);
+                    }
+                }
+                
+                // Update user info
+                updateUserInfo();
+                
+                // Update role progress
+                updateRoleProgress();
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showNotification('Some dashboard features could not be loaded', 'warning');
+            }
+        }
+        
         document.addEventListener('DOMContentLoaded', async function() {
             // Wait for Firebase and currentUser to be ready
             if (!window.__FIREBASE_READY__) {

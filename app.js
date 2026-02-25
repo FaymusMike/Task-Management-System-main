@@ -121,13 +121,19 @@ async function loginUser(email, password) {
         await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
-        await loadUserData();
         
         // Check if email needs verification
         if (!currentUser.emailVerified) {
             await currentUser.sendEmailVerification();
             await firebase.auth().signOut();
             throw new Error('Email not verified. We sent a new verification link to your inbox.');
+        }
+
+        // Load user data (with error handling)
+        try {
+            await loadUserData();
+        } catch (loadError) {
+            console.warn('Could not load full user data, continuing with basic data:', loadError);
         }
 
         // Check role and redirect
@@ -272,44 +278,107 @@ async function loadUserData() {
     if (!currentUser) return null;
     
     try {
-        const userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+        // Try to get user document
+        let userDoc;
+        try {
+            userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+        } catch (userError) {
+            console.warn('Could not fetch user document, using default values:', userError);
+            // Create default user data
+            userData = {
+                id: currentUser.uid,
+                email: currentUser.email,
+                displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+                role: 'member',
+                settings: {
+                    theme: localStorage.getItem('theme') || 'light',
+                    notifications: true
+                },
+                stats: {
+                    personalTasksCreated: 0,
+                    personalTasksCompleted: 0,
+                    teamTasksCreated: 0,
+                    teamTasksCompleted: 0,
+                    groupsCreated: 0,
+                    groupsManaged: 0
+                }
+            };
+            return userData;
+        }
         
         if (userDoc.exists) {
             userData = userDoc.data();
             userData.id = userDoc.id;
-            
-            // Load notifications with error handling
-            try {
-                await loadNotifications();
-            } catch (notifError) {
-                console.warn('Could not load notifications:', notifError);
-            }
-            
-            // Load tasks with error handling
-            try {
-                await loadTasks();
-            } catch (tasksError) {
-                console.warn('Could not load tasks:', tasksError);
-            }
-            
-            // Load teams if user is in any
-            if (userData.role === 'lead' || userData.role === 'member') {
-                try {
-                    await loadTeams();
-                } catch (teamsError) {
-                    console.warn('Could not load teams:', teamsError);
+        } else {
+            // Create default user data if document doesn't exist
+            userData = {
+                id: currentUser.uid,
+                email: currentUser.email,
+                displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+                role: 'member',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                settings: {
+                    theme: localStorage.getItem('theme') || 'light',
+                    notifications: true
+                },
+                stats: {
+                    personalTasksCreated: 0,
+                    personalTasksCompleted: 0,
+                    teamTasksCreated: 0,
+                    teamTasksCompleted: 0,
+                    groupsCreated: 0,
+                    groupsManaged: 0
                 }
+            };
+            
+            // Try to create the document
+            try {
+                await firebase.firestore().collection('users').doc(currentUser.uid).set(userData);
+            } catch (createError) {
+                console.warn('Could not create user document:', createError);
             }
-            
-            // Set theme
-            setTheme(userData.settings?.theme || 'light');
-            
-            return userData;
         }
-    } catch (error) {
-        console.error('Error loading user data:', error);
-        // Return partial data if available
+        
+        // Load notifications (with error handling)
+        try {
+            await loadNotifications();
+        } catch (notifError) {
+            console.warn('Could not load notifications:', notifError);
+        }
+        
+        // Load tasks (with error handling)
+        try {
+            await loadTasks();
+        } catch (tasksError) {
+            console.warn('Could not load tasks:', tasksError);
+        }
+        
+        // Load teams (with error handling)
+        if (userData.role === 'lead' || userData.role === 'member') {
+            try {
+                await loadTeams();
+            } catch (teamsError) {
+                console.warn('Could not load teams:', teamsError);
+            }
+        }
+        
+        // Set theme
+        setTheme(userData.settings?.theme || 'light');
+        
         return userData;
+        
+    } catch (error) {
+        console.error('Error in loadUserData:', error);
+        // Return basic user data to prevent complete failure
+        return {
+            id: currentUser.uid,
+            email: currentUser.email,
+            displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+            role: 'member',
+            settings: {
+                theme: localStorage.getItem('theme') || 'light'
+            }
+        };
     }
 }
 
@@ -387,29 +456,50 @@ async function loadTasks(filter = 'all') {
     
     try {
         let query = firebase.firestore().collection('tasks');
+        let snapshot;
         
-        // Apply filters based on user role and filter type
-        if (filter === 'personal') {
-            query = query.where('ownerId', '==', currentUser.uid);
-        } else if (filter === 'assigned') {
-            query = query.where('assigneeIds', 'array-contains', currentUser.uid);
-        } else if (filter === 'team') {
-            query = query.where('teamId', '!=', null);
+        try {
+            // Try with filters first
+            if (filter === 'personal') {
+                query = query.where('ownerId', '==', currentUser.uid);
+            } else if (filter === 'assigned') {
+                query = query.where('assigneeIds', 'array-contains', currentUser.uid);
+            } else if (filter === 'team') {
+                query = query.where('teamId', '!=', null);
+            }
+            
+            snapshot = await query
+                .orderBy('createdAt', 'desc')
+                .get();
+                
+        } catch (filterError) {
+            console.warn('Filtered query failed, falling back to simple query:', filterError);
+            
+            // Fallback: Get all tasks and filter client-side
+            snapshot = await firebase.firestore()
+                .collection('tasks')
+                .limit(100)
+                .get();
         }
-        
-        const snapshot = await query
-            .orderBy('createdAt', 'desc')
-            .get();
         
         tasks = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
         
+        // Client-side filtering if needed
+        if (filter === 'personal') {
+            tasks = tasks.filter(t => t.ownerId === currentUser.uid);
+        } else if (filter === 'assigned') {
+            tasks = tasks.filter(t => t.assigneeIds?.includes(currentUser.uid));
+        }
+        
         return tasks;
+        
     } catch (error) {
         console.error('Error loading tasks:', error);
-        throw error;
+        // Return empty array instead of throwing
+        return [];
     }
 }
 
@@ -1099,16 +1189,23 @@ async function checkUserRoleAndRedirect(userId) {
     ensureFirebaseReady();
     try {
         const doc = await firebase.firestore().collection('users').doc(userId).get();
-        if (!doc.exists) return;
-
-        const roleData = doc.data();
-        if (roleData.role === 'admin') {
+        
+        // Default to member if document doesn't exist
+        let role = 'member';
+        
+        if (doc.exists) {
+            role = doc.data().role || 'member';
+        }
+        
+        if (role === 'admin') {
             window.location.href = 'admin-dashboard.html';
         } else {
             window.location.href = 'dashboard.html';
         }
     } catch (error) {
         console.error('Error checking user role:', error);
+        // Default to dashboard on error
+        window.location.href = 'dashboard.html';
     }
 }
 
