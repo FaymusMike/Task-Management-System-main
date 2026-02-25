@@ -507,51 +507,93 @@ async function createTask(taskData, attachments = []) {
     if (!currentUser) throw new Error('User not authenticated');
     
     try {
+        // Prepare task data WITHOUT serverTimestamp in arrays
         const task = {
-            ...taskData,
+            title: taskData.title || 'Untitled Task',
+            description: taskData.description || '',
+            priority: taskData.priority || 'medium',
+            status: taskData.status || 'todo',
+            category: taskData.category || null,
+            tags: taskData.tags || [],
+            dueDate: taskData.dueDate || null,
+            teamId: taskData.teamId || null,
             ownerId: currentUser.uid,
             assigneeIds: taskData.assigneeIds || [currentUser.uid],
+            
+            // Use serverTimestamp for top-level fields only
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            status: taskData.status || 'todo',
+            
             version: 1,
+            
+            // Activity log - use regular timestamp objects, NOT serverTimestamp
             activityLog: [{
                 action: 'created',
                 userId: currentUser.uid,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                timestamp: new Date().toISOString(), // Use ISO string instead of serverTimestamp
                 details: 'Task created'
             }],
+            
             attachments: [] // Will be populated after upload
         };
         
+        // Handle subtasks if present
+        if (taskData.subtasks && taskData.subtasks.length > 0) {
+            task.subtasks = taskData.subtasks.map(subtask => ({
+                ...subtask,
+                // Use regular timestamps, not serverTimestamp
+                createdAt: new Date().toISOString()
+            }));
+        }
+        
         // Upload attachments if any
         if (attachments && attachments.length > 0) {
-            const uploadResults = await uploadMultipleFiles(attachments, null);
-            task.attachments = uploadResults;
+            try {
+                const uploadResults = await uploadMultipleFiles(attachments, null);
+                task.attachments = uploadResults.map(file => ({
+                    ...file,
+                    // Use regular timestamp
+                    uploadedAt: new Date().toISOString()
+                }));
+            } catch (uploadError) {
+                console.error('Error uploading attachments:', uploadError);
+                // Continue with task creation even if attachments fail
+                showNotification('Task created but some attachments failed to upload', 'warning');
+            }
         }
         
+        // Add task to Firestore
         const docRef = await firebase.firestore().collection('tasks').add(task);
         
-        // Update user stats
-        if (task.teamId) {
-            await updateUserStats('teamTasksCreated');
-        } else {
-            await updateUserStats('personalTasksCreated');
+        // Update user stats (these functions handle their own error logging)
+        try {
+            if (task.teamId) {
+                await updateUserStats('teamTasksCreated');
+            } else {
+                await updateUserStats('personalTasksCreated');
+            }
+        } catch (statsError) {
+            console.warn('Could not update user stats:', statsError);
         }
         
-        // Add notification for assignees
+        // Add notification for assignees (handle errors gracefully)
         if (task.assigneeIds && task.assigneeIds.length > 0) {
             for (const assigneeId of task.assigneeIds) {
                 if (assigneeId !== currentUser.uid) {
-                    await createNotification({
-                        userId: assigneeId,
-                        type: 'task_assigned',
-                        title: 'New Task Assigned',
-                        message: `${userData.displayName} assigned you a task: ${task.title}`,
-                        taskId: docRef.id,
-                        read: false,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
+                    try {
+                        await createNotification({
+                            userId: assigneeId,
+                            type: 'task_assigned',
+                            title: 'New Task Assigned',
+                            message: `${userData?.displayName || 'Someone'} assigned you a task: ${task.title}`,
+                            taskId: docRef.id,
+                            read: false,
+                            // Use regular timestamp for notification
+                            createdAt: new Date().toISOString()
+                        });
+                    } catch (notifError) {
+                        console.warn('Could not send notification:', notifError);
+                    }
                 }
             }
         }
@@ -561,7 +603,15 @@ async function createTask(taskData, attachments = []) {
         return { id: docRef.id, ...task };
     } catch (error) {
         console.error('Error creating task:', error);
-        throw error;
+        
+        // Provide user-friendly error message
+        if (error.code === 'permission-denied') {
+            throw new Error('You do not have permission to create tasks. Please check your account settings.');
+        } else if (error.message.includes('serverTimestamp')) {
+            throw new Error('Task creation failed due to data format. Please try again.');
+        } else {
+            throw new Error('Failed to create task: ' + (error.message || 'Unknown error'));
+        }
     }
 }
 
@@ -586,10 +636,11 @@ async function updateTask(taskId, updates = {}) {
         const previousStatus = existingTask.status;
         const newStatus = updates.status;
 
+        // Create activity log entry with ISO string, not serverTimestamp
         const activityEntry = {
             action: 'updated',
             userId: currentUser.uid,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            timestamp: new Date().toISOString(),
             details: 'Task updated'
         };
 
@@ -597,33 +648,49 @@ async function updateTask(taskId, updates = {}) {
             activityEntry.details = `Status changed from ${previousStatus} to ${newStatus}`;
         }
 
-        await taskRef.update({
+        // Prepare update data - separate serverTimestamp from array operations
+        const updateData = {
             ...updates,
             version: (existingTask.version || 1) + 1,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp() // OK - top-level field
+        };
+
+        // Handle activity log separately (can't use serverTimestamp in array)
+        await taskRef.update(updateData);
+        
+        // Add activity log as a separate array union operation
+        await taskRef.update({
             activityLog: firebase.firestore.FieldValue.arrayUnion(activityEntry)
         });
 
         // Track completion stats when status moves to done
         if (newStatus === 'done' && previousStatus !== 'done') {
-            if (existingTask.teamId) {
-                await updateUserStats('teamTasksCompleted');
-            } else {
-                await updateUserStats('personalTasksCompleted');
+            try {
+                if (existingTask.teamId) {
+                    await updateUserStats('teamTasksCompleted');
+                } else {
+                    await updateUserStats('personalTasksCompleted');
+                }
+            } catch (statsError) {
+                console.warn('Could not update stats:', statsError);
             }
         }
 
         // Notify owner when someone else updates their task
         if (existingTask.ownerId && existingTask.ownerId !== currentUser.uid) {
-            await createNotification({
-                userId: existingTask.ownerId,
-                type: 'task_updated',
-                title: 'Task Updated',
-                message: `${userData.displayName} updated task: ${existingTask.title}`,
-                taskId: taskId,
-                read: false,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            try {
+                await createNotification({
+                    userId: existingTask.ownerId,
+                    type: 'task_updated',
+                    title: 'Task Updated',
+                    message: `${userData?.displayName || 'Someone'} updated task: ${existingTask.title}`,
+                    taskId: taskId,
+                    read: false,
+                    createdAt: new Date().toISOString()
+                });
+            } catch (notifError) {
+                console.warn('Could not send notification:', notifError);
+            }
         }
 
         Notiflix.Notify.success('Task updated successfully!');
@@ -903,9 +970,16 @@ async function loadNotifications() {
 
 async function createNotification(notificationData) {
     try {
-        await firebase.firestore().collection('notifications').add(notificationData);
+        // Ensure createdAt is a regular timestamp, not serverTimestamp
+        const data = {
+            ...notificationData,
+            createdAt: notificationData.createdAt || new Date().toISOString()
+        };
+        
+        await firebase.firestore().collection('notifications').add(data);
     } catch (error) {
         console.error('Error creating notification:', error);
+        // Don't throw - notifications are non-critical
     }
 }
 
