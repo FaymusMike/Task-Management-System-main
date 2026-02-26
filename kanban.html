@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Board - TaskFlow</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <!-- CSS CDNs -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .kanban-container {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            overflow-x: auto;
+            min-height: calc(100vh - 80px);
+            align-items: flex-start;
+        }
+        .kanban-column {
+            flex: 1;
+            min-width: 320px;
+            max-width: 400px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 120px);
+        }
+        .column-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px 12px 0 0;
+        }
+        .column-header.todo { background: #f9731620; border-bottom-color: #f97316; }
+        .column-header.progress { background: #3b82f620; border-bottom-color: #3b82f6; }
+        .column-header.done { background: #05966920; border-bottom-color: #059669; }
+        .column-count {
+            background: var(--bg-color);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        .column-body {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            min-height: 200px;
+        }
+        .column-body.drag-over {
+            background: rgba(67, 97, 238, 0.1);
+        }
+        .kanban-task {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: move;
+            transition: all 0.2s;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .kanban-task:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-color: var(--primary);
+        }
+        .kanban-task.dragging {
+            opacity: 0.5;
+            transform: rotate(2deg);
+        }
+        .task-priority {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            border-radius: 8px 0 0 8px;
+        }
+        .priority-urgent { background: #7b2cbf; }
+        .priority-high { background: #dc2626; }
+        .priority-medium { background: #d97706; }
+        .priority-low { background: #059669; }
+        .task-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            padding-left: 0.5rem;
+        }
+        .task-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            padding-left: 0.5rem;
+        }
+        .task-assignees {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .assignee-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border: 2px solid var(--bg-color);
+        }
+        .task-tags {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            margin: 0.5rem 0;
+            padding-left: 0.5rem;
+        }
+        .task-tag {
+            background: var(--border-color);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-color);
+            opacity: 0.7;
+            padding-left: 0.5rem;
+        }
+        .add-task-btn {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px dashed var(--border-color);
+            background: transparent;
+            color: var(--text-color);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .add-task-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .kanban-filters {
+            padding: 1rem 1.5rem;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+        }
+        .search-box i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-color);
+            opacity: 0.5;
+        }
+        .search-box input {
+            padding-left: 2.5rem;
+            width: 100%;
+        }
+        .filter-select {
+            width: auto;
+            min-width: 150px;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0">TaskFlow</h4>
+            <small class="text-muted" id="user-email">Loading...</small>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="bi bi-house"></i> Dashboard</a></li>
+            <li><a href="tasks.html"><i class="bi bi-list-task"></i> My Tasks</a></li>
+            <li><a href="kanban.html" class="active"><i class="bi bi-kanban"></i> Kanban Board</a></li>
+            <li><a href="calendar.html"><i class="bi bi-calendar"></i> Calendar</a></li>
+            <li><a href="teams.html"><i class="bi bi-people"></i> Teams</a></li>
+            <li><a href="analytics.html"><i class="bi bi-graph-up"></i> Analytics</a></li>
+            <li><hr></li>
+            <li><a href="profile.html"><i class="bi bi-person"></i> Profile</a></li>
+            <li><a href="settings.html"><i class="bi bi-gear"></i> Settings</a></li>
+            <li><a href="#" id="logout-btn"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+        </ul>
+        
+        <div class="mt-auto p-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <small>Theme</small>
+                <button class="btn theme-toggle" onclick="toggleTheme()"></button>
+            </div>
+            <div class="user-role-badge text-center">
+                <span class="role-badge" id="user-role-badge">Member</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="page-header">
+            <div>
+                <h1 class="h3 mb-1">Kanban Board</h1>
+                <small class="text-muted">Drag and drop tasks to update status</small>
+            </div>
+            <div>
+                <button class="btn btn-primary" id="new-task-btn">
+                    <i class="bi bi-plus-circle"></i> New Task
+                </button>
+            </div>
+        </header>
+
+        <!-- Filters -->
+        <div class="kanban-filters">
+            <div class="search-box">
+                <i class="bi bi-search"></i>
+                <input type="text" class="form-control" id="search-tasks" placeholder="Search tasks...">
+            </div>
+            
+            <select class="form-select filter-select" id="filter-priority">
+                <option value="all">All Priorities</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+            </select>
+            
+            <select class="form-select filter-select" id="filter-assignee">
+                <option value="all">All Assignees</option>
+                <option value="me">Assigned to me</option>
+                <option value="unassigned">Unassigned</option>
+            </select>
+            
+            <button class="btn btn-outline-secondary" id="clear-filters">
+                <i class="bi bi-x-circle"></i> Clear
+            </button>
+        </div>
+
+        <!-- Kanban Board -->
+        <div class="kanban-container" id="kanban-container">
+            <!-- To Do Column -->
+            <div class="kanban-column" data-status="todo">
+                <div class="column-header todo">
+                    <span>To Do</span>
+                    <span class="column-count" id="todo-count">0</span>
+                </div>
+                <div class="column-body" id="todo-column"></div>
+                <div class="column-footer">
+                    <button class="add-task-btn" onclick="createTaskInColumn('todo')">
+                        <i class="bi bi-plus"></i> Add Task
+                    </button>
+                </div>
+            </div>
+
+            <!-- In Progress Column -->
+            <div class="kanban-column" data-status="progress">
+                <div class="column-header progress">
+                    <span>In Progress</span>
+                    <span class="column-count" id="progress-count">0</span>
+                </div>
+                <div class="column-body" id="progress-column"></div>
+                <div class="column-footer">
+                    <button class="add-task-btn" onclick="createTaskInColumn('progress')">
+                        <i class="bi bi-plus"></i> Add Task
+                    </button>
+                </div>
+            </div>
+
+            <!-- Completed Column -->
+            <div class="kanban-column" data-status="done">
+                <div class="column-header done">
+                    <span>Completed</span>
+                    <span class="column-count" id="done-count">0</span>
+                </div>
+                <div class="column-body" id="done-column"></div>
+                <div class="column-footer">
+                    <button class="add-task-btn" onclick="createTaskInColumn('done')">
+                        <i class="bi bi-plus"></i> Add Task
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Task Modal -->
+    <div class="modal fade task-modal" id="taskModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="taskModalTitle">Create New Task</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="task-form">
+                    <div class="modal-body">
+                        <input type="hidden" name="taskId" id="task-id">
+                        <input type="hidden" name="status" id="task-status" value="todo">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Task Title *</label>
+                            <input type="text" class="form-control" name="title" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Priority</label>
+                                <select class="form-select" name="priority" required>
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Due Date</label>
+                                <input type="datetime-local" class="form-control" name="dueDate">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Category</label>
+                                <input type="text" class="form-control" name="category">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Tags</label>
+                                <input type="text" class="form-control" name="tags" placeholder="tag1, tag2, tag3">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 mt-3" data-role="lead">
+                            <label class="form-label">Assign to</label>
+                            <select class="form-select" name="assigneeIds" id="assignee-select" multiple>
+                                <!-- Users will be populated here -->
+                            </select>
+                            <small class="text-muted">Hold Ctrl/Cmd to select multiple</small>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Configuration -->
+    <script src="init.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="routing-fix.js"></script>
+
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+
+    <!-- App Scripts -->
+    <script src="cloudinary-upload.js"></script>
+    <script src="realtime-presence.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        let tasks = [];
+        let filteredTasks = [];
+        let teamMembers = [];
+        let sortables = [];
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await waitForUser();
+            await loadTeamMembers();
+            await loadKanbanTasks();
+            initKanbanBoard();
+            setupKanbanListeners();
+        });
+
+        async function waitForUser() {
+            return new Promise((resolve) => {
+                const check = () => {
+                    if (currentUser && userData) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 100);
+                    }
+                };
+                check();
+            });
+        }
+
+        async function loadTeamMembers() {
+            try {
+                // Load team members if user is in teams
+                const teams = await loadTeams();
+                const memberIds = new Set();
+                
+                teams.forEach(team => {
+                    team.memberIds?.forEach(id => memberIds.add(id));
+                });
+                
+                // Load member details
+                const members = [];
+                for (const userId of memberIds) {
+                    const doc = await firebase.firestore().collection('users').doc(userId).get();
+                    if (doc.exists) {
+                        members.push({
+                            id: doc.id,
+                            ...doc.data()
+                        });
+                    }
+                }
+                
+                teamMembers = members;
+                
+                // Populate assignee select
+                const select = document.getElementById('assignee-select');
+                if (select) {
+                    select.innerHTML = '';
+                    teamMembers.forEach(member => {
+                        const option = document.createElement('option');
+                        option.value = member.id;
+                        option.textContent = member.displayName || member.email;
+                        select.appendChild(option);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error loading team members:', error);
+            }
+        }
+
+        async function loadKanbanTasks() {
+            try {
+                tasks = await loadTasks();
+                applyFilters();
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+                Notiflix.Notify.failure('Failed to load tasks');
+            }
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('search-tasks')?.value.toLowerCase() || '';
+            const priority = document.getElementById('filter-priority')?.value || 'all';
+            const assignee = document.getElementById('filter-assignee')?.value || 'all';
+            
+            filteredTasks = tasks.filter(task => {
+                // Search filter
+                if (searchTerm && !task.title.toLowerCase().includes(searchTerm) && 
+                    !(task.description || '').toLowerCase().includes(searchTerm)) {
+                    return false;
+                }
+                
+                // Priority filter
+                if (priority !== 'all' && task.priority !== priority) {
+                    return false;
+                }
+                
+                // Assignee filter
+                if (assignee === 'me' && (!task.assigneeIds || !task.assigneeIds.includes(currentUser.uid))) {
+                    return false;
+                }
+                if (assignee === 'unassigned' && task.assigneeIds && task.assigneeIds.length > 0) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            renderKanbanBoard();
+        }
+
+        function renderKanbanBoard() {
+            const todoTasks = filteredTasks.filter(t => t.status === 'todo');
+            const progressTasks = filteredTasks.filter(t => t.status === 'progress');
+            const doneTasks = filteredTasks.filter(t => t.status === 'done');
+            
+            document.getElementById('todo-column').innerHTML = renderTaskList(todoTasks);
+            document.getElementById('progress-column').innerHTML = renderTaskList(progressTasks);
+            document.getElementById('done-column').innerHTML = renderTaskList(doneTasks);
+            
+            document.getElementById('todo-count').textContent = todoTasks.length;
+            document.getElementById('progress-count').textContent = progressTasks.length;
+            document.getElementById('done-count').textContent = doneTasks.length;
+        }
+
+        function renderTaskList(tasks) {
+            if (tasks.length === 0) {
+                return '<div class="text-center py-4 text-muted">No tasks</div>';
+            }
+            
+            return tasks.map(task => renderTask(task)).join('');
+        }
+
+        function renderTask(task) {
+            const dueDate = task.dueDate ? formatDate(task.dueDate) : 'No due date';
+            const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done';
+            
+            return `
+                <div class="kanban-task" data-task-id="${task.id}" data-priority="${task.priority}">
+                    <div class="task-priority priority-${task.priority || 'medium'}"></div>
+                    
+                    <div class="task-title">${escapeHtml(task.title)}</div>
+                    
+                    ${task.description ? `<div class="small text-muted mb-2">${escapeHtml(task.description.substring(0, 100))}${task.description.length > 100 ? '...' : ''}</div>` : ''}
+                    
+                    ${task.tags && task.tags.length > 0 ? `
+                        <div class="task-tags">
+                            ${task.tags.map(tag => `<span class="task-tag">${escapeHtml(tag)}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="task-meta">
+                        <span class="badge bg-${getPriorityClass(task.priority)}">${task.priority || 'medium'}</span>
+                        
+                        <div class="task-assignees">
+                            ${renderAssignees(task.assigneeIds)}
+                        </div>
+                    </div>
+                    
+                    <div class="task-footer">
+                        <span class="${isOverdue ? 'text-danger' : ''}">
+                            <i class="bi bi-calendar"></i> ${dueDate}
+                        </span>
+                        
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-link" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="editTask('${task.id}')">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="deleteTask('${task.id}')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAssignees(assigneeIds) {
+            if (!assigneeIds || assigneeIds.length === 0) {
+                return '<span class="text-muted small">Unassigned</span>';
+            }
+            
+            const maxDisplay = 3;
+            const displayIds = assigneeIds.slice(0, maxDisplay);
+            
+            return displayIds.map(id => {
+                const member = teamMembers.find(m => m.id === id);
+                const initial = member?.displayName?.charAt(0) || '?';
+                return `<span class="assignee-avatar" title="${member?.displayName || 'Unknown'}">${initial}</span>`;
+            }).join('');
+        }
+
+        function initKanbanBoard() {
+            // Initialize Sortable for each column
+            const todoColumn = document.getElementById('todo-column');
+            const progressColumn = document.getElementById('progress-column');
+            const doneColumn = document.getElementById('done-column');
+            
+            sortables = [
+                new Sortable(todoColumn, {
+                    group: 'tasks',
+                    animation: 150,
+                    ghostClass: 'ghost',
+                    dragClass: 'dragging',
+                    onEnd: handleDragEnd
+                }),
+                new Sortable(progressColumn, {
+                    group: 'tasks',
+                    animation: 150,
+                    ghostClass: 'ghost',
+                    dragClass: 'dragging',
+                    onEnd: handleDragEnd
+                }),
+                new Sortable(doneColumn, {
+                    group: 'tasks',
+                    animation: 150,
+                    ghostClass: 'ghost',
+                    dragClass: 'dragging',
+                    onEnd: handleDragEnd
+                })
+            ];
+        }
+
+        async function handleDragEnd(evt) {
+            const taskId = evt.item.dataset.taskId;
+            const newStatus = evt.to.closest('.kanban-column').dataset.status;
+            
+            const task = tasks.find(t => t.id === taskId);
+            if (!task || task.status === newStatus) return;
+            
+            try {
+                await updateTask(taskId, { status: newStatus });
+                
+                // Update local tasks array
+                task.status = newStatus;
+                
+                Notiflix.Notify.success(`Task moved to ${newStatus}`);
+                
+            } catch (error) {
+                console.error('Error updating task status:', error);
+                Notiflix.Notify.failure('Failed to update task status');
+                
+                // Revert the drag
+                loadKanbanTasks();
+            }
+        }
+
+        function createTaskInColumn(status) {
+            document.getElementById('taskModalTitle').textContent = 'Create New Task';
+            document.getElementById('task-form').reset();
+            document.getElementById('task-id').value = '';
+            document.getElementById('task-status').value = status;
+            
+            new bootstrap.Modal(document.getElementById('taskModal')).show();
+        }
+
+        function editTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            document.getElementById('taskModalTitle').textContent = 'Edit Task';
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-status').value = task.status || 'todo';
+            
+            // Fill form
+            const form = document.getElementById('task-form');
+            form.title.value = task.title || '';
+            form.description.value = task.description || '';
+            form.priority.value = task.priority || 'medium';
+            form.dueDate.value = task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '';
+            form.category.value = task.category || '';
+            form.tags.value = task.tags ? task.tags.join(', ') : '';
+            
+            // Select assignees
+            const assigneeSelect = document.getElementById('assignee-select');
+            if (assigneeSelect && task.assigneeIds) {
+                Array.from(assigneeSelect.options).forEach(option => {
+                    option.selected = task.assigneeIds.includes(option.value);
+                });
+            }
+            
+            new bootstrap.Modal(document.getElementById('taskModal')).show();
+        }
+
+        async function deleteTask(taskId) {
+            const confirmed = await Notiflix.Confirm.show(
+                'Delete Task',
+                'Are you sure you want to delete this task?',
+                'Delete',
+                'Cancel'
+            );
+            
+            if (confirmed) {
+                try {
+                    await firebase.firestore().collection('tasks').doc(taskId).delete();
+                    
+                    // Remove from local array
+                    tasks = tasks.filter(t => t.id !== taskId);
+                    
+                    // Refresh board
+                    applyFilters();
+                    
+                    Notiflix.Notify.success('Task deleted successfully');
+                    
+                } catch (error) {
+                    console.error('Error deleting task:', error);
+                    Notiflix.Notify.failure('Failed to delete task');
+                }
+            }
+        }
+
+        function setupKanbanListeners() {
+            document.getElementById('logout-btn').addEventListener('click', logoutUser);
+            
+            document.getElementById('new-task-btn').addEventListener('click', () => {
+                createTaskInColumn('todo');
+            });
+            
+            // Search with debounce
+            let searchTimeout;
+            document.getElementById('search-tasks').addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(applyFilters, 300);
+            });
+            
+            document.getElementById('filter-priority').addEventListener('change', applyFilters);
+            document.getElementById('filter-assignee').addEventListener('change', applyFilters);
+            
+            document.getElementById('clear-filters').addEventListener('click', () => {
+                document.getElementById('search-tasks').value = '';
+                document.getElementById('filter-priority').value = 'all';
+                document.getElementById('filter-assignee').value = 'all';
+                applyFilters();
+            });
+            
+            // Task form submit
+            document.getElementById('task-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(e.target);
+                const taskId = formData.get('taskId');
+                const tags = formData.get('tags') ? formData.get('tags').split(',').map(t => t.trim()) : [];
+                
+                // Get selected assignees
+                const assigneeSelect = document.getElementById('assignee-select');
+                const assigneeIds = Array.from(assigneeSelect.selectedOptions).map(opt => opt.value);
+                
+                const taskData = {
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    priority: formData.get('priority'),
+                    dueDate: formData.get('dueDate') || null,
+                    category: formData.get('category') || null,
+                    tags: tags,
+                    assigneeIds: assigneeIds.length > 0 ? assigneeIds : [currentUser.uid],
+                    status: formData.get('status')
+                };
+                
+                try {
+                    if (taskId) {
+                        // Update existing task
+                        await updateTask(taskId, taskData);
+                    } else {
+                        // Create new task
+                        await createTask(taskData);
+                    }
+                    
+                    // Refresh tasks
+                    await loadKanbanTasks();
+                    
+                    // Close modal
+                    bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide();
+                    
+                } catch (error) {
+                    console.error('Error saving task:', error);
+                    Notiflix.Notify.failure(error.message);
+                }
+            });
+        }
+
+        function getPriorityClass(priority) {
+            switch (priority) {
+                case 'urgent': return 'dark';
+                case 'high': return 'danger';
+                case 'medium': return 'warning';
+                case 'low': return 'success';
+                default: return 'secondary';
+            }
+        }
+
+        // Make functions globally available
+        window.editTask = editTask;
+        window.deleteTask = deleteTask;
+        window.createTaskInColumn = createTaskInColumn;
+    </script>
+</body>
+</html>

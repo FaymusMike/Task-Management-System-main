@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - TaskFlow</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <!-- CSS CDNs -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .settings-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .settings-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .settings-section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .settings-section-title i {
+            color: var(--primary);
+            font-size: 1.5rem;
+        }
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        .setting-info h6 {
+            margin-bottom: 0.25rem;
+        }
+        .setting-info p {
+            margin-bottom: 0;
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .danger-zone {
+            border: 2px solid #dc2626;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+        .danger-zone-title {
+            color: #dc2626;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .notification-preview {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .integration-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+        .integration-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            font-size: 1.25rem;
+        }
+        .integration-info {
+            flex: 1;
+        }
+        .integration-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .integration-status {
+            font-size: 0.8rem;
+        }
+        .status-connected { color: #059669; }
+        .status-disconnected { color: #dc2626; }
+    </style>
+</head>
+<body data-theme="light">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0">TaskFlow</h4>
+            <small class="text-muted" id="user-email">Loading...</small>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="bi bi-house"></i> Dashboard</a></li>
+            <li><a href="tasks.html"><i class="bi bi-list-task"></i> My Tasks</a></li>
+            <li><a href="kanban.html"><i class="bi bi-kanban"></i> Kanban Board</a></li>
+            <li><a href="calendar.html"><i class="bi bi-calendar"></i> Calendar</a></li>
+            <li><a href="teams.html"><i class="bi bi-people"></i> Teams</a></li>
+            <li><a href="analytics.html"><i class="bi bi-graph-up"></i> Analytics</a></li>
+            <li><hr></li>
+            <li><a href="profile.html"><i class="bi bi-person"></i> Profile</a></li>
+            <li><a href="settings.html" class="active"><i class="bi bi-gear"></i> Settings</a></li>
+            <li><a href="#" id="logout-btn"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+        </ul>
+        
+        <div class="mt-auto p-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <small>Theme</small>
+                <button class="btn theme-toggle" onclick="toggleTheme()"></button>
+            </div>
+            <div class="user-role-badge text-center">
+                <span class="role-badge" id="user-role-badge">Member</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="page-header">
+            <div>
+                <h1 class="h3 mb-1">Settings</h1>
+                <small class="text-muted">Manage your account preferences</small>
+            </div>
+            <div>
+                <button class="btn btn-primary" id="save-settings" style="display: none;">
+                    <i class="bi bi-check-lg"></i> Save Changes
+                </button>
+            </div>
+        </header>
+
+        <!-- Settings Content -->
+        <div class="container-fluid mt-4">
+            <div class="settings-container">
+                <!-- Appearance Settings -->
+                <div class="settings-card">
+                    <h5 class="settings-section-title">
+                        <i class="bi bi-palette"></i>
+                        Appearance
+                    </h5>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Dark Mode</h6>
+                            <p>Switch between light and dark theme</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="dark-mode-toggle" onchange="toggleTheme()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Compact Mode</h6>
+                            <p>Reduce spacing for more content</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="compact-mode">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Font Size</h6>
+                            <p>Adjust text size</p>
+                        </div>
+                        <select class="form-select" style="width: auto;" id="font-size">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="large">Large</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Primary Color</h6>
+                            <p>Choose your accent color</p>
+                        </div>
+                        <input type="color" class="form-control form-control-color" id="primary-color" value="#4361ee">
+                    </div>
+                </div>
+
+                <!-- Notifications Settings -->
+                <div class="settings-card">
+                    <h5 class="settings-section-title">
+                        <i class="bi bi-bell"></i>
+                        Notifications
+                    </h5>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Email Notifications</h6>
+                            <p>Receive updates via email</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="email-notifications" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Push Notifications</h6>
+                            <p>Browser notifications for updates</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="push-notifications" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Task Reminders</h6>
+                            <p>Get reminded before due dates</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="task-reminders" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Reminder Time</h6>
+                            <p>When to send task reminders</p>
+                        </div>
+                        <select class="form-select" style="width: auto;" id="reminder-time">
+                            <option value="15">15 minutes before</option>
+                            <option value="30" selected>30 minutes before</option>
+                            <option value="60">1 hour before</option>
+                            <option value="120">2 hours before</option>
+                            <option value="1440">1 day before</option>
+                        </select>
+                    </div>
+                    
+                    <div class="notification-preview" id="notification-preview" style="display: none;">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-info-circle text-primary me-2"></i>
+                            <span>Sample notification preview</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Privacy Settings -->
+                <div class="settings-card">
+                    <h5 class="settings-section-title">
+                        <i class="bi bi-shield-lock"></i>
+                        Privacy & Security
+                    </h5>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Profile Visibility</h6>
+                            <p>Who can see your profile</p>
+                        </div>
+                        <select class="form-select" style="width: auto;" id="profile-visibility">
+                            <option value="public">Public</option>
+                            <option value="team">Team Only</option>
+                            <option value="private" selected>Private</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Activity Status</h6>
+                            <p>Show when you're active</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="show-activity" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Two-Factor Authentication</h6>
+                            <p>Enhance account security</p>
+                        </div>
+                        <button class="btn btn-outline-primary btn-sm" id="setup-2fa">Setup 2FA</button>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Login Alerts</h6>
+                            <p>Get notified of new logins</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="login-alerts" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-outline-danger btn-sm" id="sessions-btn">
+                            <i class="bi bi-phone"></i> Manage Active Sessions
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Integrations -->
+                <div class="settings-card">
+                    <h5 class="settings-section-title">
+                        <i class="bi bi-puzzle"></i>
+                        Integrations
+                    </h5>
+                    
+                    <div class="integration-item">
+                        <div class="integration-icon">
+                            <i class="bi bi-google"></i>
+                        </div>
+                        <div class="integration-info">
+                            <div class="integration-name">Google Calendar</div>
+                            <div class="integration-status status-connected">Connected</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger">Disconnect</button>
+                    </div>
+                    
+                    <div class="integration-item">
+                        <div class="integration-icon">
+                            <i class="bi bi-slack"></i>
+                        </div>
+                        <div class="integration-info">
+                            <div class="integration-name">Slack</div>
+                            <div class="integration-status status-disconnected">Not Connected</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary">Connect</button>
+                    </div>
+                    
+                    <div class="integration-item">
+                        <div class="integration-icon">
+                            <i class="bi bi-cloud"></i>
+                        </div>
+                        <div class="integration-info">
+                            <div class="integration-name">Cloudinary</div>
+                            <div class="integration-status status-connected">Connected</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger">Disconnect</button>
+                    </div>
+                </div>
+
+                <!-- Data Management -->
+                <div class="settings-card">
+                    <h5 class="settings-section-title">
+                        <i class="bi bi-database"></i>
+                        Data Management
+                    </h5>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Export Data</h6>
+                            <p>Download all your tasks and activities</p>
+                        </div>
+                        <button class="btn btn-outline-primary btn-sm" id="export-data">
+                            <i class="bi bi-download"></i> Export
+                        </button>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Backup Frequency</h6>
+                            <p>Automatic backup schedule</p>
+                        </div>
+                        <select class="form-select" style="width: auto;" id="backup-frequency">
+                            <option value="daily">Daily</option>
+                            <option value="weekly" selected>Weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Clear Cache</h6>
+                            <p>Remove temporary files</p>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" id="clear-cache">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="danger-zone">
+                    <h6 class="danger-zone-title">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Danger Zone
+                    </h6>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Change Password</h6>
+                            <p>Update your account password</p>
+                        </div>
+                        <button class="btn btn-outline-warning btn-sm" id="change-password-btn">
+                            <i class="bi bi-key"></i> Change
+                        </button>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Deactivate Account</h6>
+                            <p>Temporarily disable your account</p>
+                        </div>
+                        <button class="btn btn-outline-warning btn-sm" id="deactivate-btn">
+                            <i class="bi bi-pause-circle"></i> Deactivate
+                        </button>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h6>Delete Account</h6>
+                            <p>Permanently delete your account and all data</p>
+                        </div>
+                        <button class="btn btn-outline-danger btn-sm" id="delete-account-btn">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Change Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="change-password-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Current Password</label>
+                            <input type="password" class="form-control" name="currentPassword" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <input type="password" class="form-control" name="newPassword" required 
+                                   minlength="6" id="new-password">
+                            <div class="password-strength mt-1" id="password-strength"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" name="confirmPassword" required 
+                                   id="confirm-password">
+                            <div class="password-match" id="password-match"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions Modal -->
+    <div class="modal fade" id="sessionsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Active Sessions</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="list-group" id="sessions-list">
+                        <!-- Sessions will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-danger" id="logout-all-sessions">
+                        Logout All Sessions
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Configuration -->
+    <script src="init.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="routing-fix.js"></script>
+
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+
+    <!-- App Scripts -->
+    <script src="cloudinary-upload.js"></script>
+    <script src="realtime-presence.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            await waitForUser();
+            loadSettings();
+            setupSettingsListeners();
+        });
+
+        async function waitForUser() {
+            return new Promise((resolve) => {
+                const check = () => {
+                    if (currentUser && userData) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 100);
+                    }
+                };
+                check();
+            });
+        }
+
+        function loadSettings() {
+            const settings = userData?.settings || {};
+            
+            // Theme
+            const isDark = document.body.getAttribute('data-theme') === 'dark';
+            document.getElementById('dark-mode-toggle').checked = isDark;
+            
+            // Notifications
+            document.getElementById('email-notifications').checked = settings.emailNotifications !== false;
+            document.getElementById('push-notifications').checked = settings.pushNotifications !== false;
+            document.getElementById('task-reminders').checked = settings.taskReminders !== false;
+            document.getElementById('reminder-time').value = settings.reminderTime || '30';
+            
+            // Privacy
+            document.getElementById('profile-visibility').value = settings.profileVisibility || 'private';
+            document.getElementById('show-activity').checked = settings.showActivity !== false;
+            document.getElementById('login-alerts').checked = settings.loginAlerts !== false;
+            
+            // Appearance
+            document.getElementById('compact-mode').checked = settings.compactMode || false;
+            document.getElementById('font-size').value = settings.fontSize || 'medium';
+            document.getElementById('primary-color').value = settings.primaryColor || '#4361ee';
+            
+            // Data
+            document.getElementById('backup-frequency').value = settings.backupFrequency || 'weekly';
+        }
+
+        function setupSettingsListeners() {
+            document.getElementById('logout-btn').addEventListener('click', logoutUser);
+            
+            // Show save button when any setting changes
+            const inputs = document.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                input.addEventListener('change', showSaveButton);
+            });
+            
+            // Save settings
+            document.getElementById('save-settings').addEventListener('click', saveSettings);
+            
+            // Change password
+            document.getElementById('change-password-btn').addEventListener('click', () => {
+                new bootstrap.Modal(document.getElementById('changePasswordModal')).show();
+            });
+            
+            document.getElementById('change-password-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(e.target);
+                const currentPassword = formData.get('currentPassword');
+                const newPassword = formData.get('newPassword');
+                const confirmPassword = formData.get('confirmPassword');
+                
+                if (newPassword !== confirmPassword) {
+                    Notiflix.Notify.failure('New passwords do not match');
+                    return;
+                }
+                
+                if (newPassword.length < 6) {
+                    Notiflix.Notify.failure('Password must be at least 6 characters');
+                    return;
+                }
+                
+                try {
+                    // Re-authenticate user
+                    const credential = firebase.auth.EmailAuthProvider.credential(
+                        currentUser.email,
+                        currentPassword
+                    );
+                    
+                    await currentUser.reauthenticateWithCredential(credential);
+                    
+                    // Update password
+                    await currentUser.updatePassword(newPassword);
+                    
+                    bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                    e.target.reset();
+                    
+                    Notiflix.Notify.success('Password updated successfully');
+                    
+                } catch (error) {
+                    console.error('Error changing password:', error);
+                    if (error.code === 'auth/wrong-password') {
+                        Notiflix.Notify.failure('Current password is incorrect');
+                    } else {
+                        Notiflix.Notify.failure('Failed to change password');
+                    }
+                }
+            });
+            
+            // Delete account
+            document.getElementById('delete-account-btn').addEventListener('click', async () => {
+                const confirmed = await Notiflix.Confirm.show(
+                    'Delete Account',
+                    'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
+                    'Delete Forever',
+                    'Cancel'
+                );
+                
+                if (confirmed) {
+                    try {
+                        Notiflix.Loading.standard('Deleting account...');
+                        
+                        // Delete user data from Firestore
+                        await firebase.firestore().collection('users').doc(currentUser.uid).delete();
+                        
+                        // Delete user tasks
+                        const tasks = await firebase.firestore().collection('tasks')
+                            .where('ownerId', '==', currentUser.uid)
+                            .get();
+                        
+                        const batch = firebase.firestore().batch();
+                        tasks.docs.forEach(doc => batch.delete(doc.ref));
+                        await batch.commit();
+                        
+                        // Delete user from Auth
+                        await currentUser.delete();
+                        
+                        Notiflix.Loading.remove();
+                        Notiflix.Notify.success('Account deleted successfully');
+                        
+                        window.location.href = 'index.html';
+                        
+                    } catch (error) {
+                        Notiflix.Loading.remove();
+                        console.error('Error deleting account:', error);
+                        Notiflix.Notify.failure('Failed to delete account');
+                    }
+                }
+            });
+            
+            // Export data
+            document.getElementById('export-data').addEventListener('click', exportUserData);
+            
+            // Clear cache
+            document.getElementById('clear-cache').addEventListener('click', () => {
+                localStorage.clear();
+                sessionStorage.clear();
+                Notiflix.Notify.success('Cache cleared successfully');
+            });
+            
+            // Manage sessions
+            document.getElementById('sessions-btn').addEventListener('click', showSessions);
+            
+            // 2FA setup
+            document.getElementById('setup-2fa').addEventListener('click', () => {
+                Notiflix.Notify.info('2FA setup will be available soon');
+            });
+            
+            // Password strength checker
+            document.getElementById('new-password').addEventListener('input', checkPasswordStrength);
+            document.getElementById('confirm-password').addEventListener('input', checkPasswordMatch);
+        }
+
+        function showSaveButton() {
+            document.getElementById('save-settings').style.display = 'block';
+        }
+
+        async function saveSettings() {
+            const settings = {
+                emailNotifications: document.getElementById('email-notifications').checked,
+                pushNotifications: document.getElementById('push-notifications').checked,
+                taskReminders: document.getElementById('task-reminders').checked,
+                reminderTime: document.getElementById('reminder-time').value,
+                profileVisibility: document.getElementById('profile-visibility').value,
+                showActivity: document.getElementById('show-activity').checked,
+                loginAlerts: document.getElementById('login-alerts').checked,
+                compactMode: document.getElementById('compact-mode').checked,
+                fontSize: document.getElementById('font-size').value,
+                primaryColor: document.getElementById('primary-color').value,
+                backupFrequency: document.getElementById('backup-frequency').value,
+                updatedAt: new Date().toISOString()
+            };
+            
+            try {
+                await firebase.firestore().collection('users').doc(currentUser.uid).update({
+                    settings: settings
+                });
+                
+                // Update local userData
+                userData.settings = settings;
+                
+                // Apply settings
+                applySettings(settings);
+                
+                document.getElementById('save-settings').style.display = 'none';
+                Notiflix.Notify.success('Settings saved successfully');
+                
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                Notiflix.Notify.failure('Failed to save settings');
+            }
+        }
+
+        function applySettings(settings) {
+            // Apply theme (handled by toggleTheme)
+            
+            // Apply font size
+            if (settings.fontSize === 'small') {
+                document.documentElement.style.fontSize = '14px';
+            } else if (settings.fontSize === 'large') {
+                document.documentElement.style.fontSize = '18px';
+            } else {
+                document.documentElement.style.fontSize = '16px';
+            }
+            
+            // Apply primary color
+            document.documentElement.style.setProperty('--primary', settings.primaryColor);
+            
+            // Apply compact mode
+            if (settings.compactMode) {
+                document.body.classList.add('compact-mode');
+            } else {
+                document.body.classList.remove('compact-mode');
+            }
+        }
+
+        function checkPasswordStrength() {
+            const password = document.getElementById('new-password').value;
+            const strengthEl = document.getElementById('password-strength');
+            
+            let strength = 'Weak';
+            let strengthClass = 'strength-weak';
+            
+            if (password.length >= 8) {
+                strength = 'Medium';
+                strengthClass = 'strength-medium';
+                
+                if (password.match(/[a-z]/) && password.match(/[A-Z]/) && 
+                    password.match(/[0-9]/) && password.match(/[^a-zA-Z0-9]/)) {
+                    strength = 'Strong';
+                    strengthClass = 'strength-strong';
+                }
+            }
+            
+            strengthEl.textContent = `Password strength: ${strength}`;
+            strengthEl.className = `password-strength ${strengthClass}`;
+        }
+
+        function checkPasswordMatch() {
+            const password = document.getElementById('new-password').value;
+            const confirm = document.getElementById('confirm-password').value;
+            const matchEl = document.getElementById('password-match');
+            
+            if (!confirm) {
+                matchEl.textContent = '';
+                return;
+            }
+            
+            if (password === confirm) {
+                matchEl.textContent = '✓ Passwords match';
+                matchEl.className = 'password-match match-success';
+            } else {
+                matchEl.textContent = '✗ Passwords do not match';
+                matchEl.className = 'password-match match-error';
+            }
+        }
+
+        async function exportUserData() {
+            try {
+                Notiflix.Loading.standard('Exporting your data...');
+                
+                const userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+                const tasks = await firebase.firestore().collection('tasks')
+                    .where('ownerId', '==', currentUser.uid)
+                    .get();
+                
+                const activities = await firebase.firestore().collection('activityLogs')
+                    .where('userId', '==', currentUser.uid)
+                    .limit(100)
+                    .get();
+                
+                const exportData = {
+                    user: userDoc.data(),
+                    tasks: tasks.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+                    activities: activities.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+                    exportedAt: new Date().toISOString(),
+                    version: '1.0'
+                };
+                
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                
+                const exportName = `taskflow-export-${new Date().toISOString().split('T')[0]}.json`;
+                
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportName);
+                linkElement.click();
+                
+                Notiflix.Loading.remove();
+                Notiflix.Notify.success('Data exported successfully');
+                
+            } catch (error) {
+                Notiflix.Loading.remove();
+                console.error('Error exporting data:', error);
+                Notiflix.Notify.failure('Failed to export data');
+            }
+        }
+
+        async function showSessions() {
+            const modal = new bootstrap.Modal(document.getElementById('sessionsModal'));
+            
+            // Get sessions from Realtime DB
+            const sessionsRef = firebase.database().ref('sessions').child(currentUser.uid);
+            const snapshot = await sessionsRef.once('value');
+            const sessions = snapshot.val() || {};
+            
+            const list = document.getElementById('sessions-list');
+            
+            if (Object.keys(sessions).length === 0) {
+                list.innerHTML = '<p class="text-muted text-center py-3">No active sessions</p>';
+            } else {
+                let html = '';
+                Object.values(sessions).forEach(session => {
+                    const lastActive = new Date(session.lastActive).toLocaleString();
+                    html += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">${session.device || 'Unknown Device'}</h6>
+                                    <p class="mb-0 small text-muted">
+                                        <i class="bi bi-globe"></i> ${session.location || 'Unknown'} | 
+                                        Last active: ${lastActive}
+                                    </p>
+                                </div>
+                                ${session.current ? '<span class="badge bg-success">Current</span>' : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                list.innerHTML = html;
+            }
+            
+            modal.show();
+        }
+    </script>
+</body>
+</html>

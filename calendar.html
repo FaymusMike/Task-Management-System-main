@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar - TaskFlow</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <!-- CSS CDNs -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- FullCalendar -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        #calendar {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 15px;
+            border: 1px solid var(--border-color);
+        }
+        .fc-toolbar-title {
+            color: var(--text-color);
+        }
+        .fc-button-primary {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+        .fc-button-primary:hover {
+            background-color: var(--secondary) !important;
+        }
+        .fc-day-today {
+            background-color: rgba(67, 97, 238, 0.1) !important;
+        }
+        .fc-event {
+            cursor: pointer;
+            border: none;
+            padding: 2px 4px;
+            margin: 1px 0;
+            border-radius: 4px;
+        }
+        .calendar-legend {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        .priority-high { background-color: #dc2626; }
+        .priority-medium { background-color: #d97706; }
+        .priority-low { background-color: #059669; }
+        .priority-urgent { background-color: #7b2cbf; }
+        .task-quick-info {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1rem;
+            max-width: 300px;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .task-quick-info.show {
+            display: block;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .view-options {
+            display: flex;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0">TaskFlow</h4>
+            <small class="text-muted" id="user-email">Loading...</small>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="bi bi-house"></i> Dashboard</a></li>
+            <li><a href="tasks.html"><i class="bi bi-list-task"></i> My Tasks</a></li>
+            <li><a href="kanban.html"><i class="bi bi-kanban"></i> Kanban Board</a></li>
+            <li><a href="calendar.html" class="active"><i class="bi bi-calendar"></i> Calendar</a></li>
+            <li><a href="teams.html"><i class="bi bi-people"></i> Teams</a></li>
+            <li><a href="analytics.html"><i class="bi bi-graph-up"></i> Analytics</a></li>
+            <li><hr></li>
+            <li><a href="profile.html"><i class="bi bi-person"></i> Profile</a></li>
+            <li><a href="settings.html"><i class="bi bi-gear"></i> Settings</a></li>
+            <li><a href="#" id="logout-btn"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+        </ul>
+        
+        <div class="mt-auto p-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <small>Theme</small>
+                <button class="btn theme-toggle" onclick="toggleTheme()"></button>
+            </div>
+            <div class="user-role-badge text-center">
+                <span class="role-badge" id="user-role-badge">Member</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="page-header">
+            <div>
+                <h1 class="h3 mb-1">Calendar</h1>
+                <small class="text-muted">View and manage your tasks by date</small>
+            </div>
+            <div class="view-options">
+                <button class="btn btn-outline-primary active" onclick="changeView('dayGridMonth')">Month</button>
+                <button class="btn btn-outline-primary" onclick="changeView('timeGridWeek')">Week</button>
+                <button class="btn btn-outline-primary" onclick="changeView('timeGridDay')">Day</button>
+                <button class="btn btn-outline-primary" onclick="changeView('listWeek')">List</button>
+            </div>
+        </header>
+
+        <!-- Calendar Content -->
+        <div class="container-fluid mt-4">
+            <!-- Legend -->
+            <div class="calendar-legend">
+                <div class="legend-item">
+                    <div class="legend-color priority-low"></div>
+                    <span>Low Priority</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color priority-medium"></div>
+                    <span>Medium Priority</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color priority-high"></div>
+                    <span>High Priority</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color priority-urgent"></div>
+                    <span>Urgent</span>
+                </div>
+                <div class="legend-item">
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span>Completed</span>
+                </div>
+            </div>
+
+            <!-- Calendar -->
+            <div id="calendar"></div>
+        </div>
+    </main>
+
+    <!-- Task Quick Info -->
+    <div class="task-quick-info" id="taskQuickInfo">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 id="quick-task-title">Task Title</h6>
+            <button class="btn-close btn-sm" onclick="hideTaskInfo()"></button>
+        </div>
+        <p class="small text-muted mb-2" id="quick-task-desc"></p>
+        <div class="mb-2">
+            <span class="badge" id="quick-task-priority"></span>
+            <span class="badge bg-secondary" id="quick-task-status"></span>
+        </div>
+        <p class="small mb-1"><i class="bi bi-clock"></i> <span id="quick-task-time"></span></p>
+        <p class="small mb-2"><i class="bi bi-person"></i> <span id="quick-task-assignee"></span></p>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-primary" onclick="viewTaskDetails()">View Details</button>
+            <button class="btn btn-sm btn-outline-success" onclick="markTaskComplete()">Complete</button>
+        </div>
+    </div>
+
+    <!-- Task Details Modal -->
+    <div class="modal fade" id="taskDetailsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="task-detail-title"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="task-detail-desc" class="mb-3"></p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <small class="text-muted">Priority</small>
+                            <p id="task-detail-priority"></p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Status</small>
+                            <p id="task-detail-status"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <small class="text-muted">Due Date</small>
+                        <p id="task-detail-due"></p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <small class="text-muted">Category</small>
+                        <p id="task-detail-category"></p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <small class="text-muted">Tags</small>
+                        <div id="task-detail-tags"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="editCurrentTask()">Edit Task</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Configuration -->
+    <script src="init.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="routing-fix.js"></script>
+
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+
+    <!-- App Scripts -->
+    <script src="cloudinary-upload.js"></script>
+    <script src="realtime-presence.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        let calendar;
+        let calendarTasks = [];
+        let selectedTaskId = null;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await waitForUser();
+            await loadCalendarTasks();
+            initCalendar();
+            setupCalendarListeners();
+        });
+
+        async function waitForUser() {
+            return new Promise((resolve) => {
+                const check = () => {
+                    if (currentUser && userData) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 100);
+                    }
+                };
+                check();
+            });
+        }
+
+        async function loadCalendarTasks() {
+            try {
+                const allTasks = await loadTasks();
+                
+                // Filter tasks with due dates
+                calendarTasks = allTasks.filter(task => task.dueDate);
+                
+            } catch (error) {
+                console.error('Error loading calendar tasks:', error);
+                Notiflix.Notify.failure('Failed to load calendar tasks');
+            }
+        }
+
+        function initCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: ''
+                },
+                themeSystem: 'bootstrap5',
+                height: 'auto',
+                events: getCalendarEvents(),
+                eventClick: function(info) {
+                    showTaskQuickInfo(info.event);
+                },
+                dateClick: function(info) {
+                    // Open create task modal with selected date
+                    createTaskWithDate(info.dateStr);
+                },
+                eventDidMount: function(info) {
+                    // Add tooltip
+                    info.el.title = info.event.title;
+                },
+                eventContent: function(arg) {
+                    // Custom event rendering
+                    return {
+                        html: `<div class="fc-event-title">${arg.event.title}</div>`
+                    };
+                }
+            });
+            
+            calendar.render();
+        }
+
+        function getCalendarEvents() {
+            const events = [];
+            
+            calendarTasks.forEach(task => {
+                if (!task.dueDate) return;
+                
+                const dueDate = task.dueDate.toDate ? task.dueDate.toDate() : new Date(task.dueDate);
+                const isCompleted = task.status === 'done';
+                
+                events.push({
+                    id: task.id,
+                    title: task.title,
+                    start: dueDate.toISOString(),
+                    allDay: true,
+                    backgroundColor: getPriorityColor(task.priority, isCompleted),
+                    borderColor: getPriorityColor(task.priority, isCompleted),
+                    textColor: '#ffffff',
+                    extendedProps: {
+                        task: task
+                    }
+                });
+            });
+            
+            return events;
+        }
+
+        function getPriorityColor(priority, completed = false) {
+            if (completed) return '#059669';
+            
+            switch (priority) {
+                case 'urgent': return '#7b2cbf';
+                case 'high': return '#dc2626';
+                case 'medium': return '#d97706';
+                case 'low': return '#059669';
+                default: return '#4361ee';
+            }
+        }
+
+        function showTaskQuickInfo(event) {
+            const task = event.extendedProps.task;
+            selectedTaskId = task.id;
+            
+            document.getElementById('quick-task-title').textContent = task.title;
+            document.getElementById('quick-task-desc').textContent = task.description || 'No description';
+            document.getElementById('quick-task-priority').textContent = task.priority || 'medium';
+            document.getElementById('quick-task-priority').className = `badge bg-${getPriorityClass(task.priority)}`;
+            document.getElementById('quick-task-status').textContent = task.status || 'todo';
+            
+            const dueDate = task.dueDate.toDate ? task.dueDate.toDate() : new Date(task.dueDate);
+            document.getElementById('quick-task-time').textContent = dueDate.toLocaleString();
+            
+            const assignee = task.assigneeIds?.length > 0 ? `${task.assigneeIds.length} assignees` : 'Not assigned';
+            document.getElementById('quick-task-assignee').textContent = assignee;
+            
+            document.getElementById('taskQuickInfo').classList.add('show');
+        }
+
+        function hideTaskInfo() {
+            document.getElementById('taskQuickInfo').classList.remove('show');
+        }
+
+        function viewTaskDetails() {
+            if (!selectedTaskId) return;
+            
+            const task = calendarTasks.find(t => t.id === selectedTaskId);
+            if (!task) return;
+            
+            document.getElementById('task-detail-title').textContent = task.title;
+            document.getElementById('task-detail-desc').textContent = task.description || 'No description';
+            document.getElementById('task-detail-priority').textContent = task.priority || 'medium';
+            document.getElementById('task-detail-priority').className = `badge bg-${getPriorityClass(task.priority)}`;
+            document.getElementById('task-detail-status').textContent = task.status || 'todo';
+            
+            const dueDate = task.dueDate.toDate ? task.dueDate.toDate() : new Date(task.dueDate);
+            document.getElementById('task-detail-due').textContent = dueDate.toLocaleString();
+            
+            document.getElementById('task-detail-category').textContent = task.category || 'Uncategorized';
+            
+            // Render tags
+            const tagsContainer = document.getElementById('task-detail-tags');
+            if (task.tags && task.tags.length > 0) {
+                tagsContainer.innerHTML = task.tags.map(tag => 
+                    `<span class="badge bg-secondary me-1">${tag}</span>`
+                ).join('');
+            } else {
+                tagsContainer.innerHTML = '<span class="text-muted">No tags</span>';
+            }
+            
+            hideTaskInfo();
+            new bootstrap.Modal(document.getElementById('taskDetailsModal')).show();
+        }
+
+        function editCurrentTask() {
+            // Redirect to tasks page or open edit modal
+            window.location.href = `tasks.html?id=${selectedTaskId}`;
+        }
+
+        async function markTaskComplete() {
+            if (!selectedTaskId) return;
+            
+            try {
+                await updateTask(selectedTaskId, { status: 'done' });
+                
+                // Refresh calendar
+                await loadCalendarTasks();
+                calendar.removeAllEvents();
+                calendar.addEventSource(getCalendarEvents());
+                
+                hideTaskInfo();
+                Notiflix.Notify.success('Task marked as complete');
+                
+            } catch (error) {
+                console.error('Error completing task:', error);
+                Notiflix.Notify.failure('Failed to complete task');
+            }
+        }
+
+        function createTaskWithDate(dateStr) {
+            // Redirect to tasks page with date pre-filled
+            window.location.href = `tasks.html?date=${dateStr}`;
+        }
+
+        function changeView(viewName) {
+            calendar.changeView(viewName);
+            
+            // Update active button
+            document.querySelectorAll('.view-options .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function getPriorityClass(priority) {
+            switch (priority) {
+                case 'urgent': return 'dark';
+                case 'high': return 'danger';
+                case 'medium': return 'warning';
+                case 'low': return 'success';
+                default: return 'primary';
+            }
+        }
+
+        function setupCalendarListeners() {
+            document.getElementById('logout-btn').addEventListener('click', logoutUser);
+            
+            // Hide quick info when clicking outside
+            document.addEventListener('click', function(event) {
+                const quickInfo = document.getElementById('taskQuickInfo');
+                if (!quickInfo.contains(event.target) && !event.target.closest('.fc-event')) {
+                    hideTaskInfo();
+                }
+            });
+        }
+
+        // Refresh calendar when tasks change
+        firebase.firestore().collection('tasks')
+            .where('ownerId', '==', currentUser?.uid)
+            .onSnapshot(() => {
+                loadCalendarTasks().then(() => {
+                    calendar.removeAllEvents();
+                    calendar.addEventSource(getCalendarEvents());
+                });
+            });
+    </script>
+</body>
+</html>

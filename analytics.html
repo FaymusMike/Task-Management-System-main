@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - TaskFlow</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <!-- CSS CDNs -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .analytics-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 1.5rem;
+            height: 100%;
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 0.5rem;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .metric-change {
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .change-positive { color: #059669; }
+        .change-negative { color: #dc2626; }
+        .date-range-picker {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        .productivity-score {
+            text-align: center;
+            padding: 2rem;
+        }
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: conic-gradient(var(--primary) 0deg, var(--border-color) 0deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            position: relative;
+        }
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: var(--card-bg);
+        }
+        .score-value {
+            position: relative;
+            font-size: 2.5rem;
+            font-weight: 700;
+            z-index: 1;
+        }
+        .export-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 100;
+        }
+        .trend-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .trend-up {
+            background: rgba(5, 150, 105, 0.1);
+            color: #059669;
+        }
+        .trend-down {
+            background: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0">TaskFlow</h4>
+            <small class="text-muted" id="user-email">Loading...</small>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="bi bi-house"></i> Dashboard</a></li>
+            <li><a href="tasks.html"><i class="bi bi-list-task"></i> My Tasks</a></li>
+            <li><a href="kanban.html"><i class="bi bi-kanban"></i> Kanban Board</a></li>
+            <li><a href="calendar.html"><i class="bi bi-calendar"></i> Calendar</a></li>
+            <li><a href="teams.html"><i class="bi bi-people"></i> Teams</a></li>
+            <li><a href="analytics.html" class="active"><i class="bi bi-graph-up"></i> Analytics</a></li>
+            <li><hr></li>
+            <li><a href="profile.html"><i class="bi bi-person"></i> Profile</a></li>
+            <li><a href="settings.html"><i class="bi bi-gear"></i> Settings</a></li>
+            <li><a href="#" id="logout-btn"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+        </ul>
+        
+        <div class="mt-auto p-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <small>Theme</small>
+                <button class="btn theme-toggle" onclick="toggleTheme()"></button>
+            </div>
+            <div class="user-role-badge text-center">
+                <span class="role-badge" id="user-role-badge">Member</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="page-header">
+            <div>
+                <h1 class="h3 mb-1">Analytics & Insights</h1>
+                <small class="text-muted">Track your productivity and performance</small>
+            </div>
+            <div class="date-range-picker">
+                <select class="form-select" id="date-range" style="width: auto;">
+                    <option value="7">Last 7 days</option>
+                    <option value="30" selected>Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="365">Last year</option>
+                </select>
+                <button class="btn btn-outline-primary" id="refresh-analytics">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Analytics Content -->
+        <div class="container-fluid mt-4">
+            <!-- Key Metrics -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-3">
+                    <div class="analytics-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="metric-value" id="metric-tasks">0</div>
+                                <div class="metric-label">Total Tasks</div>
+                            </div>
+                            <span class="trend-indicator trend-up" id="trend-tasks">
+                                <i class="bi bi-arrow-up"></i> 0%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="analytics-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="metric-value" id="metric-completed">0</div>
+                                <div class="metric-label">Completed</div>
+                            </div>
+                            <span class="trend-indicator" id="trend-completed">
+                                <i class="bi bi-dash"></i> 0%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="analytics-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="metric-value" id="metric-completion-rate">0%</div>
+                                <div class="metric-label">Completion Rate</div>
+                            </div>
+                            <span class="trend-indicator" id="trend-rate">
+                                <i class="bi bi-dash"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="analytics-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="metric-value" id="metric-avg-time">0d</div>
+                                <div class="metric-label">Avg. Completion Time</div>
+                            </div>
+                            <span class="trend-indicator" id="trend-time">
+                                <i class="bi bi-dash"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row 1 -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-8">
+                    <div class="analytics-card">
+                        <h5 class="mb-3">Task Completion Trend</h5>
+                        <div class="chart-container">
+                            <canvas id="trend-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="analytics-card">
+                        <h5 class="mb-3">Task Distribution</h5>
+                        <div class="chart-container">
+                            <canvas id="distribution-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row 2 -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="analytics-card">
+                        <h5 class="mb-3">Tasks by Priority</h5>
+                        <div class="chart-container">
+                            <canvas id="priority-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="analytics-card">
+                        <h5 class="mb-3">Tasks by Category</h5>
+                        <div class="chart-container">
+                            <canvas id="category-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productivity Score & Insights -->
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="analytics-card">
+                        <h5 class="mb-3">Productivity Score</h5>
+                        <div class="productivity-score">
+                            <div class="score-circle" id="productivity-circle">
+                                <span class="score-value" id="productivity-score">0</span>
+                            </div>
+                            <p class="text-muted mb-0">Based on completion rate and timeliness</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="analytics-card">
+                        <h5 class="mb-3">Insights & Recommendations</h5>
+                        <div id="insights-list">
+                            <!-- Insights will be loaded here -->
+                            <div class="text-center py-4">
+                                <div class="loading-spinner"></div>
+                                <p class="mt-2 text-muted">Analyzing your data...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Export Button -->
+    <button class="btn btn-primary export-btn" id="export-data" title="Export Analytics">
+        <i class="bi bi-download"></i>
+    </button>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Configuration -->
+    <script src="init.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="routing-fix.js"></script>
+
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+
+    <!-- App Scripts -->
+    <script src="cloudinary-upload.js"></script>
+    <script src="realtime-presence.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        let analyticsCharts = {};
+        let tasks = [];
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Wait for user
+            await waitForUser();
+            
+            // Load analytics data
+            await loadAnalyticsData();
+            
+            // Setup event listeners
+            setupAnalyticsListeners();
+        });
+
+        async function waitForUser() {
+            return new Promise((resolve) => {
+                const check = () => {
+                    if (currentUser && userData) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 100);
+                    }
+                };
+                check();
+            });
+        }
+
+        async function loadAnalyticsData() {
+            try {
+                const range = parseInt(document.getElementById('date-range').value);
+                
+                // Load tasks
+                tasks = await loadTasks();
+                
+                // Filter by date range
+                const filteredTasks = filterTasksByDate(tasks, range);
+                
+                // Update metrics
+                updateMetrics(filteredTasks);
+                
+                // Update charts
+                updateCharts(filteredTasks);
+                
+                // Update productivity score
+                updateProductivityScore(filteredTasks);
+                
+                // Generate insights
+                generateInsights(filteredTasks);
+                
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                Notiflix.Notify.failure('Failed to load analytics data');
+            }
+        }
+
+        function filterTasksByDate(tasks, days) {
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            
+            return tasks.filter(task => {
+                const createdAt = task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt);
+                return createdAt >= cutoff;
+            });
+        }
+
+        function updateMetrics(tasks) {
+            const total = tasks.length;
+            const completed = tasks.filter(t => t.status === 'done').length;
+            const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+            
+            // Calculate average completion time (in days)
+            let totalDays = 0;
+            let completedWithTime = 0;
+            
+            tasks.forEach(task => {
+                if (task.status === 'done' && task.createdAt && task.updatedAt) {
+                    const created = task.createdAt.toDate ? task.createdAt.toDate() : new Date(task.createdAt);
+                    const completed = task.updatedAt.toDate ? task.updatedAt.toDate() : new Date(task.updatedAt);
+                    const days = (completed - created) / (1000 * 60 * 60 * 24);
+                    totalDays += days;
+                    completedWithTime++;
+                }
+            });
+            
+            const avgTime = completedWithTime > 0 ? (totalDays / completedWithTime).toFixed(1) : 0;
+            
+            // Update DOM
+            document.getElementById('metric-tasks').textContent = total;
+            document.getElementById('metric-completed').textContent = completed;
+            document.getElementById('metric-completion-rate').textContent = completionRate + '%';
+            document.getElementById('metric-avg-time').textContent = avgTime + 'd';
+            
+            // Calculate trends (compare with previous period)
+            calculateTrends(tasks);
+        }
+
+        function calculateTrends(currentTasks) {
+            // This would compare with previous period
+            // For now, set some sample values
+            document.getElementById('trend-tasks').innerHTML = '<i class="bi bi-arrow-up"></i> 12%';
+            document.getElementById('trend-completed').innerHTML = '<i class="bi bi-arrow-up"></i> 8%';
+            document.getElementById('trend-rate').innerHTML = '<i class="bi bi-arrow-up"></i> 5%';
+            document.getElementById('trend-time').innerHTML = '<i class="bi bi-arrow-down"></i> -2d';
+        }
+
+        function updateCharts(tasks) {
+            // Destroy existing charts
+            Object.values(analyticsCharts).forEach(chart => chart?.destroy());
+            
+            // Trend Chart
+            const trendCtx = document.getElementById('trend-chart').getContext('2d');
+            analyticsCharts.trend = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: getLast7Days(),
+                    datasets: [{
+                        label: 'Tasks Completed',
+                        data: getDailyCompletions(tasks),
+                        borderColor: '#4361ee',
+                        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+            
+            // Distribution Chart (by status)
+            const distCtx = document.getElementById('distribution-chart').getContext('2d');
+            analyticsCharts.distribution = new Chart(distCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['To Do', 'In Progress', 'Completed'],
+                    datasets: [{
+                        data: [
+                            tasks.filter(t => t.status === 'todo').length,
+                            tasks.filter(t => t.status === 'progress').length,
+                            tasks.filter(t => t.status === 'done').length
+                        ],
+                        backgroundColor: ['#f97316', '#3b82f6', '#059669'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+            
+            // Priority Chart
+            const priorityCtx = document.getElementById('priority-chart').getContext('2d');
+            analyticsCharts.priority = new Chart(priorityCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Low', 'Medium', 'High', 'Urgent'],
+                    datasets: [{
+                        data: [
+                            tasks.filter(t => t.priority === 'low').length,
+                            tasks.filter(t => t.priority === 'medium').length,
+                            tasks.filter(t => t.priority === 'high').length,
+                            tasks.filter(t => t.priority === 'urgent').length
+                        ],
+                        backgroundColor: ['#059669', '#d97706', '#dc2626', '#7b2cbf']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            
+            // Category Chart
+            const categories = getCategoryData(tasks);
+            const categoryCtx = document.getElementById('category-chart').getContext('2d');
+            analyticsCharts.category = new Chart(categoryCtx, {
+                type: 'polarArea',
+                data: {
+                    labels: categories.map(c => c.name),
+                    datasets: [{
+                        data: categories.map(c => c.count),
+                        backgroundColor: generateColors(categories.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        function getLast7Days() {
+            const days = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                days.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+            }
+            return days;
+        }
+
+        function getDailyCompletions(tasks) {
+            const completions = new Array(7).fill(0);
+            const today = new Date();
+            
+            tasks.forEach(task => {
+                if (task.status === 'done' && task.updatedAt) {
+                    const completedDate = task.updatedAt.toDate ? task.updatedAt.toDate() : new Date(task.updatedAt);
+                    const diffDays = Math.floor((today - completedDate) / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 0 && diffDays < 7) {
+                        completions[6 - diffDays]++;
+                    }
+                }
+            });
+            
+            return completions;
+        }
+
+        function getCategoryData(tasks) {
+            const categoryMap = new Map();
+            tasks.forEach(task => {
+                if (task.category) {
+                    categoryMap.set(task.category, (categoryMap.get(task.category) || 0) + 1);
+                }
+            });
+            
+            return Array.from(categoryMap.entries())
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 6);
+        }
+
+        function generateColors(count) {
+            const colors = [];
+            for (let i = 0; i < count; i++) {
+                const hue = (i * 360 / count) % 360;
+                colors.push(`hsl(${hue}, 70%, 60%)`);
+            }
+            return colors;
+        }
+
+        function updateProductivityScore(tasks) {
+            const completed = tasks.filter(t => t.status === 'done').length;
+            const total = tasks.length;
+            const onTime = tasks.filter(t => {
+                if (t.status === 'done' && t.dueDate) {
+                    const dueDate = t.dueDate.toDate ? t.dueDate.toDate() : new Date(t.dueDate);
+                    const completedDate = t.updatedAt.toDate ? t.updatedAt.toDate() : new Date(t.updatedAt);
+                    return completedDate <= dueDate;
+                }
+                return false;
+            }).length;
+            
+            const completionRate = total > 0 ? completed / total : 0;
+            const onTimeRate = completed > 0 ? onTime / completed : 0;
+            
+            // Weighted score: 60% completion rate, 40% on-time rate
+            const score = Math.round((completionRate * 60) + (onTimeRate * 40));
+            
+            // Update circle
+            const circle = document.getElementById('productivity-circle');
+            const degrees = (score / 100) * 360;
+            circle.style.background = `conic-gradient(var(--primary) ${degrees}deg, var(--border-color) ${degrees}deg)`;
+            
+            document.getElementById('productivity-score').textContent = score;
+        }
+
+        function generateInsights(tasks) {
+            const insights = [];
+            
+            // Overall completion rate
+            const completed = tasks.filter(t => t.status === 'done').length;
+            const total = tasks.length;
+            const rate = total > 0 ? (completed / total) * 100 : 0;
+            
+            if (rate < 30) {
+                insights.push({
+                    type: 'warning',
+                    icon: '⚠️',
+                    title: 'Low Completion Rate',
+                    message: 'Your task completion rate is below 30%. Try breaking down large tasks into smaller ones.'
+                });
+            } else if (rate > 70) {
+                insights.push({
+                    type: 'success',
+                    icon: '🎉',
+                    title: 'Great Progress!',
+                    message: `You're completing ${Math.round(rate)}% of your tasks. Keep up the good work!`
+                });
+            }
+            
+            // Overdue tasks
+            const overdue = tasks.filter(t => {
+                if (t.status !== 'done' && t.dueDate) {
+                    const dueDate = t.dueDate.toDate ? t.dueDate.toDate() : new Date(t.dueDate);
+                    return dueDate < new Date();
+                }
+                return false;
+            }).length;
+            
+            if (overdue > 0) {
+                insights.push({
+                    type: 'danger',
+                    icon: '⏰',
+                    title: 'Overdue Tasks',
+                    message: `You have ${overdue} overdue task${overdue > 1 ? 's' : ''}. Consider reprioritizing.`
+                });
+            }
+            
+            // Priority distribution
+            const urgent = tasks.filter(t => t.priority === 'urgent' && t.status !== 'done').length;
+            if (urgent > 3) {
+                insights.push({
+                    type: 'warning',
+                    icon: '🔥',
+                    title: 'High Workload',
+                    message: `You have ${urgent} urgent tasks pending. Consider delegating some.`
+                });
+            }
+            
+            // Best time of day (simplified)
+            insights.push({
+                type: 'info',
+                icon: '💡',
+                title: 'Productivity Tip',
+                message: 'You complete most tasks in the morning. Schedule important tasks before noon.'
+            });
+            
+            renderInsights(insights);
+        }
+
+        function renderInsights(insights) {
+            const container = document.getElementById('insights-list');
+            
+            if (insights.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-4">No insights available</p>';
+                return;
+            }
+            
+            let html = '';
+            insights.forEach(insight => {
+                const bgColor = insight.type === 'success' ? '#05966920' :
+                               insight.type === 'warning' ? '#d9770620' :
+                               insight.type === 'danger' ? '#dc262620' : '#3b82f620';
+                
+                html += `
+                    <div class="d-flex align-items-start gap-3 p-3 mb-2 rounded" style="background: ${bgColor};">
+                        <span style="font-size: 1.5rem;">${insight.icon}</span>
+                        <div>
+                            <h6 class="mb-1">${insight.title}</h6>
+                            <p class="mb-0 small">${insight.message}</p>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function setupAnalyticsListeners() {
+            document.getElementById('logout-btn').addEventListener('click', logoutUser);
+            
+            document.getElementById('refresh-analytics').addEventListener('click', loadAnalyticsData);
+            
+            document.getElementById('date-range').addEventListener('change', loadAnalyticsData);
+            
+            document.getElementById('export-data').addEventListener('click', exportAnalytics);
+        }
+
+        function exportAnalytics() {
+            // Prepare data for export
+            const exportData = {
+                generated: new Date().toISOString(),
+                user: {
+                    id: currentUser?.uid,
+                    email: currentUser?.email,
+                    role: userData?.role
+                },
+                metrics: {
+                    totalTasks: document.getElementById('metric-tasks').textContent,
+                    completed: document.getElementById('metric-completed').textContent,
+                    completionRate: document.getElementById('metric-completion-rate').textContent,
+                    avgTime: document.getElementById('metric-avg-time').textContent
+                },
+                tasks: tasks.map(t => ({
+                    title: t.title,
+                    status: t.status,
+                    priority: t.priority,
+                    category: t.category,
+                    createdAt: t.createdAt,
+                    completedAt: t.status === 'done' ? t.updatedAt : null
+                }))
+            };
+            
+            // Create download
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportName = `taskflow-analytics-${new Date().toISOString().split('T')[0]}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportName);
+            linkElement.click();
+            
+            Notiflix.Notify.success('Analytics exported successfully');
+        }
+    </script>
+</body>
+</html>

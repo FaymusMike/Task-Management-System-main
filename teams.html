@@ -5,28 +5,170 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teams - TaskFlow</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <!-- CSS CDNs -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .team-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            height: 100%;
+        }
+        .team-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .member-avatar-sm {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-right: -8px;
+            border: 2px solid var(--card-bg);
+        }
+        .member-avatar-sm:last-child {
+            margin-right: 0;
+        }
+        .team-stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        .stat-item {
+            flex: 1;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            text-transform: uppercase;
+        }
+        .invite-section {
+            background: var(--card-bg);
+            border: 2px dashed var(--border-color);
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .invite-section:hover {
+            border-color: var(--primary);
+            background: rgba(67, 97, 238, 0.05);
+        }
+        .member-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .member-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .member-item:last-child {
+            border-bottom: none;
+        }
+        .member-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 1rem;
+        }
+        .member-info {
+            flex: 1;
+        }
+        .member-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .member-email {
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+        .member-role-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .role-owner { background: #dc2626; color: white; }
+        .role-lead { background: #d97706; color: white; }
+        .role-member { background: #059669; color: white; }
+    </style>
 </head>
 <body data-theme="light">
-    <!-- Copy sidebar from dashboard.html -->
-    
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0">TaskFlow</h4>
+            <small class="text-muted" id="user-email">Loading...</small>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="bi bi-house"></i> Dashboard</a></li>
+            <li><a href="tasks.html"><i class="bi bi-list-task"></i> My Tasks</a></li>
+            <li><a href="kanban.html"><i class="bi bi-kanban"></i> Kanban Board</a></li>
+            <li><a href="calendar.html"><i class="bi bi-calendar"></i> Calendar</a></li>
+            <li><a href="teams.html" class="active"><i class="bi bi-people"></i> Teams</a></li>
+            <li><a href="analytics.html"><i class="bi bi-graph-up"></i> Analytics</a></li>
+            <li><hr></li>
+            <li><a href="profile.html"><i class="bi bi-person"></i> Profile</a></li>
+            <li><a href="settings.html"><i class="bi bi-gear"></i> Settings</a></li>
+            <li><a href="#" id="logout-btn"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+        </ul>
+        
+        <div class="mt-auto p-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <small>Theme</small>
+                <button class="btn theme-toggle" onclick="toggleTheme()"></button>
+            </div>
+            <div class="user-role-badge text-center">
+                <span class="role-badge" id="user-role-badge">Member</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
     <main class="main-content">
+        <!-- Header -->
         <header class="page-header">
             <div>
                 <h1 class="h3 mb-1">Teams</h1>
-                <small class="text-muted">Manage your teams and collaborate</small>
+                <small class="text-muted">Collaborate with your team members</small>
             </div>
-            <div>
-                <button class="btn btn-primary" id="create-team-btn">
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" id="refresh-teams">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                <button class="btn btn-primary" id="create-team-btn" data-role="lead">
                     <i class="bi bi-plus-circle"></i> Create Team
                 </button>
             </div>
         </header>
 
+        <!-- Teams Grid -->
         <div class="container-fluid mt-4">
-            <div class="row" id="teams-container">
+            <div class="row g-4" id="teams-grid">
                 <!-- Teams will be loaded here -->
                 <div class="col-12 text-center py-5">
                     <div class="loading-spinner"></div>
@@ -36,23 +178,30 @@
         </div>
     </main>
 
-    <!-- Team Modal -->
-    <div class="modal fade" id="teamModal" tabindex="-1">
+    <!-- Create Team Modal -->
+    <div class="modal fade" id="createTeamModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Create New Team</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="team-form">
+                <form id="create-team-form">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Team Name *</label>
-                            <input type="text" class="form-control" name="name" required>
+                            <input type="text" class="form-control" name="name" required maxlength="50">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" rows="3"></textarea>
+                            <textarea class="form-control" name="description" rows="3" maxlength="200"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Team Color</label>
+                            <div class="d-flex gap-2">
+                                <input type="color" class="form-control form-control-color" name="color" value="#4361ee">
+                                <input type="text" class="form-control" name="colorHex" value="#4361ee" maxlength="7">
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -64,91 +213,422 @@
         </div>
     </div>
 
+    <!-- Team Details Modal -->
+    <div class="modal fade" id="teamDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="team-detail-title">Team Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6 id="team-detail-name"></h6>
+                            <p id="team-detail-description" class="text-muted"></p>
+                            
+                            <div class="team-stats mb-4">
+                                <div class="stat-item">
+                                    <div class="stat-value" id="team-stat-members">0</div>
+                                    <div class="stat-label">Members</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="team-stat-tasks">0</div>
+                                    <div class="stat-label">Tasks</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-value" id="team-stat-completed">0</div>
+                                    <div class="stat-label">Completed</div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mb-3">Team Members</h6>
+                            <div class="member-list" id="team-members-list">
+                                <!-- Members will be loaded here -->
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="invite-section">
+                                <i class="bi bi-envelope-paper fs-1 text-muted mb-3"></i>
+                                <h6>Invite Members</h6>
+                                <p class="small text-muted mb-3">Send email invitations to join this team</p>
+                                <form id="invite-member-form">
+                                    <div class="input-group mb-2">
+                                        <input type="email" class="form-control" placeholder="Email address" required>
+                                        <button class="btn btn-primary" type="submit">Send</button>
+                                    </div>
+                                </form>
+                                <small class="text-muted">Users will receive an email invitation</small>
+                            </div>
+                            
+                            <hr>
+                            
+                            <h6 class="mb-3">Team Settings</h6>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-warning btn-sm" id="edit-team-btn">
+                                    <i class="bi bi-pencil"></i> Edit Team
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" id="leave-team-btn">
+                                    <i class="bi bi-box-arrow-right"></i> Leave Team
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" id="delete-team-btn" style="display: none;">
+                                    <i class="bi bi-trash"></i> Delete Team
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Configuration -->
     <script src="init.js"></script>
     <script src="firebase-config.js"></script>
     <script src="routing-fix.js"></script>
+
+    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+
+    <!-- App Scripts -->
     <script src="cloudinary-upload.js"></script>
     <script src="realtime-presence.js"></script>
     <script src="app.js"></script>
+
     <script>
+        let currentTeamId = null;
+        let teams = [];
+
         document.addEventListener('DOMContentLoaded', async function() {
-            // Teams page functionality
+            // Wait for Firebase and user
+            await waitForUser();
+            
+            // Load teams
             await loadTeamsList();
             
-            document.getElementById('create-team-btn').addEventListener('click', () => {
-                new bootstrap.Modal(document.getElementById('teamModal')).show();
+            // Setup event listeners
+            setupTeamEventListeners();
+        });
+
+        async function waitForUser() {
+            return new Promise((resolve) => {
+                const check = () => {
+                    if (currentUser && userData) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 100);
+                    }
+                };
+                check();
+            });
+        }
+
+        async function loadTeamsList() {
+            try {
+                teams = await loadTeams();
+                renderTeamsGrid();
+            } catch (error) {
+                console.error('Error loading teams:', error);
+                Notiflix.Notify.failure('Failed to load teams');
+            }
+        }
+
+        function renderTeamsGrid() {
+            const grid = document.getElementById('teams-grid');
+            
+            if (teams.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-12">
+                        <div class="text-center py-5">
+                            <i class="bi bi-people fs-1 text-muted"></i>
+                            <h5 class="mt-3">No Teams Yet</h5>
+                            <p class="text-muted">Create your first team to start collaborating</p>
+                            ${userData?.role === 'admin' || userData?.role === 'lead' ? 
+                                '<button class="btn btn-primary" onclick="document.getElementById(\'create-team-btn\').click()">Create Team</button>' : 
+                                '<p class="small text-muted">Contact an admin to join a team</p>'}
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            teams.forEach(team => {
+                const isOwner = team.ownerId === currentUser?.uid;
+                const isLead = team.leadId === currentUser?.uid;
+                const memberCount = team.memberIds?.length || 1;
+                
+                html += `
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card team-card" onclick="showTeamDetails('${team.id}')">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h5 class="card-title mb-0">${escapeHtml(team.name)}</h5>
+                                    ${isOwner ? '<span class="badge bg-danger">Owner</span>' : 
+                                      isLead ? '<span class="badge bg-warning">Lead</span>' : ''}
+                                </div>
+                                
+                                <p class="card-text text-muted small">${escapeHtml(team.description || 'No description')}</p>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="member-avatars">
+                                        ${renderMemberAvatars(team.memberIds || [])}
+                                    </div>
+                                    <span class="ms-2 small text-muted">${memberCount} member${memberCount !== 1 ? 's' : ''}</span>
+                                </div>
+                                
+                                <div class="team-stats">
+                                    <div class="stat-item">
+                                        <div class="stat-value">${team.taskCount || 0}</div>
+                                        <div class="stat-label">Tasks</div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-value">${team.completedCount || 0}</div>
+                                        <div class="stat-label">Done</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        function renderMemberAvatars(memberIds) {
+            const maxDisplay = 5;
+            const count = memberIds.length;
+            const displayCount = Math.min(count, maxDisplay);
+            let html = '';
+            
+            for (let i = 0; i < displayCount; i++) {
+                html += `<span class="member-avatar-sm">${memberIds[i].charAt(0).toUpperCase()}</span>`;
+            }
+            
+            if (count > maxDisplay) {
+                html += `<span class="member-avatar-sm">+${count - maxDisplay}</span>`;
+            }
+            
+            return html;
+        }
+
+        async function showTeamDetails(teamId) {
+            currentTeamId = teamId;
+            
+            try {
+                const team = teams.find(t => t.id === teamId);
+                if (!team) return;
+                
+                // Load team members data
+                const members = await loadTeamMembers(team.memberIds || []);
+                
+                // Load team tasks stats
+                const tasks = await loadTeamTasks(teamId);
+                
+                // Update modal content
+                document.getElementById('team-detail-title').textContent = team.name;
+                document.getElementById('team-detail-name').textContent = team.name;
+                document.getElementById('team-detail-description').textContent = team.description || 'No description';
+                document.getElementById('team-stat-members').textContent = members.length;
+                document.getElementById('team-stat-tasks').textContent = tasks.length;
+                document.getElementById('team-stat-completed').textContent = tasks.filter(t => t.status === 'done').length;
+                
+                // Render members
+                renderTeamMembers(members);
+                
+                // Show/hide delete button based on permissions
+                const deleteBtn = document.getElementById('delete-team-btn');
+                if (team.ownerId === currentUser?.uid || userData?.role === 'admin') {
+                    deleteBtn.style.display = 'block';
+                } else {
+                    deleteBtn.style.display = 'none';
+                }
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('teamDetailsModal'));
+                modal.show();
+                
+            } catch (error) {
+                console.error('Error loading team details:', error);
+                Notiflix.Notify.failure('Failed to load team details');
+            }
+        }
+
+        async function loadTeamMembers(memberIds) {
+            const members = [];
+            for (const userId of memberIds) {
+                try {
+                    const doc = await firebase.firestore().collection('users').doc(userId).get();
+                    if (doc.exists) {
+                        members.push({
+                            id: doc.id,
+                            ...doc.data()
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error loading member:', error);
+                }
+            }
+            return members;
+        }
+
+        async function loadTeamTasks(teamId) {
+            try {
+                const snapshot = await firebase.firestore()
+                    .collection('tasks')
+                    .where('teamId', '==', teamId)
+                    .get();
+                
+                return snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+            } catch (error) {
+                console.error('Error loading team tasks:', error);
+                return [];
+            }
+        }
+
+        function renderTeamMembers(members) {
+            const list = document.getElementById('team-members-list');
+            
+            if (members.length === 0) {
+                list.innerHTML = '<p class="text-muted text-center py-3">No members found</p>';
+                return;
+            }
+            
+            let html = '';
+            members.forEach(member => {
+                const role = member.role || 'member';
+                const roleClass = role === 'admin' ? 'role-owner' : 
+                                 role === 'lead' ? 'role-lead' : 'role-member';
+                
+                html += `
+                    <div class="member-item">
+                        <div class="member-avatar">${member.displayName?.charAt(0) || 'U'}</div>
+                        <div class="member-info">
+                            <div class="member-name">${escapeHtml(member.displayName || 'Unknown')}</div>
+                            <div class="member-email">${escapeHtml(member.email || '')}</div>
+                        </div>
+                        <div>
+                            <span class="member-role-badge ${roleClass}">${role}</span>
+                        </div>
+                    </div>
+                `;
             });
             
-            document.getElementById('team-form').addEventListener('submit', async (e) => {
+            list.innerHTML = html;
+        }
+
+        function setupTeamEventListeners() {
+            // Logout
+            document.getElementById('logout-btn').addEventListener('click', logoutUser);
+            
+            // Refresh
+            document.getElementById('refresh-teams').addEventListener('click', loadTeamsList);
+            
+            // Create team
+            document.getElementById('create-team-btn').addEventListener('click', () => {
+                if (userData?.role === 'member') {
+                    Notiflix.Notify.warning('Only team leads and admins can create teams');
+                    return;
+                }
+                new bootstrap.Modal(document.getElementById('createTeamModal')).show();
+            });
+            
+            // Create team form
+            document.getElementById('create-team-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                
                 const formData = new FormData(e.target);
+                const teamData = {
+                    name: formData.get('name'),
+                    description: formData.get('description'),
+                    color: formData.get('color') || '#4361ee'
+                };
                 
                 try {
-                    await createTeam({
-                        name: formData.get('name'),
-                        description: formData.get('description')
-                    });
+                    await createTeam(teamData);
                     
-                    bootstrap.Modal.getInstance(document.getElementById('teamModal')).hide();
+                    // Close modal and reset
+                    bootstrap.Modal.getInstance(document.getElementById('createTeamModal')).hide();
                     e.target.reset();
+                    
+                    // Reload teams
                     await loadTeamsList();
+                    
+                    Notiflix.Notify.success('Team created successfully!');
                 } catch (error) {
                     Notiflix.Notify.failure(error.message);
                 }
             });
+            
+            // Invite member form
+            document.getElementById('invite-member-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const email = e.target.querySelector('input[type="email"]').value;
+                
+                try {
+                    await inviteToTeam(currentTeamId, email);
+                    e.target.reset();
+                    
+                    // Refresh team details
+                    await showTeamDetails(currentTeamId);
+                    
+                    Notiflix.Notify.success(`Invitation sent to ${email}`);
+                } catch (error) {
+                    Notiflix.Notify.failure(error.message);
+                }
+            });
+            
+            // Delete team
+            document.getElementById('delete-team-btn').addEventListener('click', async () => {
+                const confirmed = await Notiflix.Confirm.show(
+                    'Delete Team',
+                    'Are you sure you want to delete this team? This action cannot be undone.',
+                    'Delete',
+                    'Cancel'
+                );
+                
+                if (confirmed) {
+                    try {
+                        await firebase.firestore().collection('teams').doc(currentTeamId).delete();
+                        
+                        // Close modal
+                        bootstrap.Modal.getInstance(document.getElementById('teamDetailsModal')).hide();
+                        
+                        // Reload teams
+                        await loadTeamsList();
+                        
+                        Notiflix.Notify.success('Team deleted successfully');
+                    } catch (error) {
+                        Notiflix.Notify.failure('Failed to delete team');
+                    }
+                }
+            });
+        }
+
+        // Utility function for color input sync
+        document.querySelector('input[name="color"]')?.addEventListener('input', (e) => {
+            document.querySelector('input[name="colorHex"]').value = e.target.value;
         });
         
-        async function loadTeamsList() {
-            try {
-                const teams = await loadTeams();
-                const container = document.getElementById('teams-container');
-                
-                if (teams.length === 0) {
-                    container.innerHTML = `
-                        <div class="col-12 text-center py-5">
-                            <i class="bi bi-people fs-1 text-muted"></i>
-                            <p class="mt-3 text-muted">You're not part of any teams yet.</p>
-                            <button class="btn btn-primary" onclick="document.getElementById('create-team-btn').click()">
-                                Create Your First Team
-                            </button>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                let html = '';
-                teams.forEach(team => {
-                    html += `
-                        <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <h5 class="card-title">${escapeHtml(team.name)}</h5>
-                                    <p class="card-text text-muted">${escapeHtml(team.description || 'No description')}</p>
-                                    <p class="card-text">
-                                        <small class="text-muted">
-                                            <i class="bi bi-people"></i> ${team.memberIds?.length || 1} members
-                                        </small>
-                                    </p>
-                                    <a href="team-detail.html?id=${team.id}" class="btn btn-outline-primary">View Team</a>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                container.innerHTML = html;
-            } catch (error) {
-                console.error('Error loading teams:', error);
+        document.querySelector('input[name="colorHex"]')?.addEventListener('input', (e) => {
+            if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                document.querySelector('input[name="color"]').value = e.target.value;
             }
-        }
+        });
     </script>
 </body>
 </html>

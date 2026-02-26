@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - TaskFlow</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <!-- CSS CDNs -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .profile-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            margin-bottom: 2rem;
+            color: white;
+        }
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid white;
+            background: white;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: 600;
+            margin-right: 2rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .profile-avatar-large {
+            width: 150px;
+            height: 150px;
+            font-size: 4rem;
+        }
+        .avatar-upload {
+            position: relative;
+            display: inline-block;
+        }
+        .avatar-upload-overlay {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            cursor: pointer;
+            border: 2px solid var(--primary);
+            transition: all 0.3s;
+        }
+        .avatar-upload-overlay:hover {
+            background: var(--primary);
+            color: white;
+        }
+        .profile-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .profile-section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .info-item {
+            margin-bottom: 1.5rem;
+        }
+        .info-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+        }
+        .info-value {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        .badge-container {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+        .achievement-badge {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .stat-tile {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .stat-tile-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-tile-label {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }
+        .activity-timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+        .timeline-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.5rem;
+            top: 0.5rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 2px solid var(--bg-color);
+        }
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            left: -1rem;
+            top: 1rem;
+            bottom: 0;
+            width: 2px;
+            background: var(--border-color);
+        }
+        .timeline-item:last-child::after {
+            display: none;
+        }
+        .timeline-date {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-bottom: 0.25rem;
+        }
+        .timeline-content {
+            font-size: 0.95rem;
+        }
+        .social-links {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .social-link {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .social-link:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h4 class="mb-0">TaskFlow</h4>
+            <small class="text-muted" id="user-email">Loading...</small>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <li><a href="dashboard.html"><i class="bi bi-house"></i> Dashboard</a></li>
+            <li><a href="tasks.html"><i class="bi bi-list-task"></i> My Tasks</a></li>
+            <li><a href="kanban.html"><i class="bi bi-kanban"></i> Kanban Board</a></li>
+            <li><a href="calendar.html"><i class="bi bi-calendar"></i> Calendar</a></li>
+            <li><a href="teams.html"><i class="bi bi-people"></i> Teams</a></li>
+            <li><a href="analytics.html"><i class="bi bi-graph-up"></i> Analytics</a></li>
+            <li><hr></li>
+            <li><a href="profile.html" class="active"><i class="bi bi-person"></i> Profile</a></li>
+            <li><a href="settings.html"><i class="bi bi-gear"></i> Settings</a></li>
+            <li><a href="#" id="logout-btn"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+        </ul>
+        
+        <div class="mt-auto p-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <small>Theme</small>
+                <button class="btn theme-toggle" onclick="toggleTheme()"></button>
+            </div>
+            <div class="user-role-badge text-center">
+                <span class="role-badge" id="user-role-badge">Member</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="page-header">
+            <div>
+                <h1 class="h3 mb-1">My Profile</h1>
+                <small class="text-muted">Manage your personal information</small>
+            </div>
+            <div>
+                <button class="btn btn-primary" id="edit-profile-btn">
+                    <i class="bi bi-pencil"></i> Edit Profile
+                </button>
+            </div>
+        </header>
+
+        <!-- Profile Content -->
+        <div class="container-fluid mt-4">
+            <!-- Profile Header -->
+            <div class="profile-header d-flex align-items-center">
+                <div class="avatar-upload">
+                    <div class="profile-avatar" id="profile-avatar">U</div>
+                    <div class="avatar-upload-overlay" id="upload-avatar-btn" title="Change avatar">
+                        <i class="bi bi-camera"></i>
+                    </div>
+                    <input type="file" id="avatar-input" accept="image/*" style="display: none;">
+                </div>
+                <div>
+                    <h2 id="profile-name">Loading...</h2>
+                    <p id="profile-email" class="mb-2">Loading...</p>
+                    <span class="badge" id="profile-role-badge">Member</span>
+                    <p class="mt-2 mb-0" id="profile-joined">Joined: Loading...</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Left Column -->
+                <div class="col-md-4">
+                    <!-- Personal Info -->
+                    <div class="profile-card">
+                        <h5 class="profile-section-title">Personal Information</h5>
+                        
+                        <div class="info-item">
+                            <div class="info-label">Full Name</div>
+                            <div class="info-value" id="info-fullname">Loading...</div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <div class="info-label">Email Address</div>
+                            <div class="info-value" id="info-email">Loading...</div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <div class="info-label">Phone Number</div>
+                            <div class="info-value" id="info-phone">Not provided</div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <div class="info-label">Location</div>
+                            <div class="info-value" id="info-location">Not provided</div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <div class="info-label">Timezone</div>
+                            <div class="info-value" id="info-timezone">UTC</div>
+                        </div>
+                        
+                        <div class="social-links">
+                            <a href="#" class="social-link" title="GitHub" id="github-link" style="display: none;">
+                                <i class="bi bi-github"></i>
+                            </a>
+                            <a href="#" class="social-link" title="LinkedIn" id="linkedin-link" style="display: none;">
+                                <i class="bi bi-linkedin"></i>
+                            </a>
+                            <a href="#" class="social-link" title="Twitter" id="twitter-link" style="display: none;">
+                                <i class="bi bi-twitter"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Achievements -->
+                    <div class="profile-card">
+                        <h5 class="profile-section-title">Achievements</h5>
+                        
+                        <div class="badge-container" id="achievements-container">
+                            <!-- Achievements will be loaded here -->
+                            <div class="text-muted small">Loading achievements...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div class="col-md-8">
+                    <!-- Stats Overview -->
+                    <div class="profile-card">
+                        <h5 class="profile-section-title">Statistics Overview</h5>
+                        
+                        <div class="row g-3">
+                            <div class="col-sm-6 col-md-4">
+                                <div class="stat-tile">
+                                    <div class="stat-tile-value" id="stat-total-tasks">0</div>
+                                    <div class="stat-tile-label">Total Tasks</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-md-4">
+                                <div class="stat-tile">
+                                    <div class="stat-tile-value" id="stat-completed-tasks">0</div>
+                                    <div class="stat-tile-label">Completed</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-md-4">
+                                <div class="stat-tile">
+                                    <div class="stat-tile-value" id="stat-teams">0</div>
+                                    <div class="stat-tile-label">Teams</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-md-4">
+                                <div class="stat-tile">
+                                    <div class="stat-tile-value" id="stat-streak">0</div>
+                                    <div class="stat-tile-label">Day Streak</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-md-4">
+                                <div class="stat-tile">
+                                    <div class="stat-tile-value" id="stat-productivity">0%</div>
+                                    <div class="stat-tile-label">Productivity</div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-md-4">
+                                <div class="stat-tile">
+                                    <div class="stat-tile-value" id="stat-accuracy">0%</div>
+                                    <div class="stat-tile-label">On-time Rate</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="profile-card">
+                        <h5 class="profile-section-title">Recent Activity</h5>
+                        
+                        <div class="activity-timeline" id="activity-timeline">
+                            <!-- Activity items will be loaded here -->
+                            <div class="text-center py-4">
+                                <div class="loading-spinner"></div>
+                                <p class="mt-2 text-muted">Loading activity...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Skills & Expertise -->
+                    <div class="profile-card">
+                        <h5 class="profile-section-title">Skills & Expertise</h5>
+                        
+                        <div class="badge-container" id="skills-container">
+                            <span class="badge bg-secondary p-2">Add skills...</span>
+                        </div>
+                        
+                        <button class="btn btn-outline-primary btn-sm mt-3" id="add-skill-btn">
+                            <i class="bi bi-plus"></i> Add Skill
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="edit-profile-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Display Name</label>
+                            <input type="text" class="form-control" name="displayName" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" name="phone" placeholder="+1 234 567 890">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Location</label>
+                            <input type="text" class="form-control" name="location" placeholder="City, Country">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Timezone</label>
+                            <select class="form-select" name="timezone">
+                                <option value="UTC">UTC</option>
+                                <option value="EST">Eastern Time</option>
+                                <option value="CST">Central Time</option>
+                                <option value="MST">Mountain Time</option>
+                                <option value="PST">Pacific Time</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Bio</label>
+                            <textarea class="form-control" name="bio" rows="3" placeholder="Tell us about yourself..."></textarea>
+                        </div>
+                        
+                        <h6 class="mb-3">Social Links</h6>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">GitHub</label>
+                            <input type="url" class="form-control" name="github" placeholder="https://github.com/username">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">LinkedIn</label>
+                            <input type="url" class="form-control" name="linkedin" placeholder="https://linkedin.com/in/username">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Twitter</label>
+                            <input type="url" class="form-control" name="twitter" placeholder="https://twitter.com/username">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Skill Modal -->
+    <div class="modal fade" id="addSkillModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Skill</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="add-skill-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Skill Name</label>
+                            <input type="text" class="form-control" name="skill" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Proficiency Level</label>
+                            <select class="form-select" name="level">
+                                <option value="beginner">Beginner</option>
+                                <option value="intermediate">Intermediate</option>
+                                <option value="advanced">Advanced</option>
+                                <option value="expert">Expert</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Skill</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- Configuration -->
+    <script src="init.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="routing-fix.js"></script>
+
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+
+    <!-- App Scripts -->
+    <script src="cloudinary-upload.js"></script>
+    <script src="realtime-presence.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            await waitForUser();
+            await loadProfileData();
+            setupProfileListeners();
+        });
+
+        async function waitForUser() {
+            return new Promise((resolve) => {
+                const check = () => {
+                    if (currentUser && userData) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 100);
+                    }
+                };
+                check();
+            });
+        }
+
+        async function loadProfileData() {
+            try {
+                // Update basic info
+                updateBasicInfo();
+                
+                // Load statistics
+                await loadUserStatistics();
+                
+                // Load activity
+                await loadUserActivity();
+                
+                // Load achievements
+                loadAchievements();
+                
+                // Load skills
+                loadSkills();
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                Notiflix.Notify.failure('Failed to load profile data');
+            }
+        }
+
+        function updateBasicInfo() {
+            const displayName = userData?.displayName || currentUser?.email?.split('@')[0] || 'User';
+            const email = userData?.email || currentUser?.email || '';
+            const firstName = userData?.firstName || '';
+            const lastName = userData?.lastName || '';
+            const fullName = `${firstName} ${lastName}`.trim() || displayName;
+            
+            // Update header
+            document.getElementById('profile-name').textContent = displayName;
+            document.getElementById('profile-email').textContent = email;
+            document.getElementById('profile-role-badge').textContent = (userData?.role || 'member').toUpperCase();
+            document.getElementById('profile-role-badge').className = `badge bg-${getRoleColor(userData?.role)}`;
+            
+            // Update info section
+            document.getElementById('info-fullname').textContent = fullName;
+            document.getElementById('info-email').textContent = email;
+            document.getElementById('info-phone').textContent = userData?.phone || 'Not provided';
+            document.getElementById('info-location').textContent = userData?.location || 'Not provided';
+            document.getElementById('info-timezone').textContent = userData?.timezone || 'UTC';
+            
+            // Update avatar
+            const avatar = document.getElementById('profile-avatar');
+            if (userData?.avatar) {
+                avatar.innerHTML = `<img src="${userData.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+            } else {
+                avatar.textContent = displayName.charAt(0).toUpperCase();
+            }
+            
+            // Update joined date
+            const joined = userData?.createdAt ? formatDate(userData.createdAt) : 'Recently';
+            document.getElementById('profile-joined').textContent = `Joined: ${joined}`;
+            
+            // Update social links
+            if (userData?.github) {
+                document.getElementById('github-link').style.display = 'flex';
+                document.getElementById('github-link').href = userData.github;
+            }
+            if (userData?.linkedin) {
+                document.getElementById('linkedin-link').style.display = 'flex';
+                document.getElementById('linkedin-link').href = userData.linkedin;
+            }
+            if (userData?.twitter) {
+                document.getElementById('twitter-link').style.display = 'flex';
+                document.getElementById('twitter-link').href = userData.twitter;
+            }
+        }
+
+        async function loadUserStatistics() {
+            try {
+                const tasks = await loadTasks();
+                
+                const total = tasks.length;
+                const completed = tasks.filter(t => t.status === 'done').length;
+                
+                // Get teams count
+                const teams = await loadTeams();
+                
+                // Calculate streak (simplified)
+                const streak = calculateStreak(tasks);
+                
+                // Calculate productivity (completion rate)
+                const productivity = total > 0 ? Math.round((completed / total) * 100) : 0;
+                
+                // Calculate on-time rate
+                const onTime = tasks.filter(t => {
+                    if (t.status === 'done' && t.dueDate) {
+                        const dueDate = t.dueDate.toDate ? t.dueDate.toDate() : new Date(t.dueDate);
+                        const completedDate = t.updatedAt.toDate ? t.updatedAt.toDate() : new Date(t.updatedAt);
+                        return completedDate <= dueDate;
+                    }
+                    return false;
+                }).length;
+                
+                const accuracy = completed > 0 ? Math.round((onTime / completed) * 100) : 0;
+                
+                // Update DOM
+                document.getElementById('stat-total-tasks').textContent = total;
+                document.getElementById('stat-completed-tasks').textContent = completed;
+                document.getElementById('stat-teams').textContent = teams.length;
+                document.getElementById('stat-streak').textContent = streak;
+                document.getElementById('stat-productivity').textContent = productivity + '%';
+                document.getElementById('stat-accuracy').textContent = accuracy + '%';
+                
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+            }
+        }
+
+        function calculateStreak(tasks) {
+            // Simple streak calculation based on last 7 days
+            let streak = 0;
+            const today = new Date();
+            
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                
+                const tasksOnDay = tasks.filter(t => {
+                    const created = t.createdAt?.toDate ? t.createdAt.toDate() : new Date(t.createdAt);
+                    return created.toDateString() === date.toDateString();
+                });
+                
+                if (tasksOnDay.length > 0) {
+                    streak++;
+                } else {
+                    break;
+                }
+            }
+            
+            return streak;
+        }
+
+        async function loadUserActivity() {
+            try {
+                const activities = await getActivityLogs(10);
+                const timeline = document.getElementById('activity-timeline');
+                
+                if (activities.length === 0) {
+                    timeline.innerHTML = '<p class="text-muted text-center py-4">No recent activity</p>';
+                    return;
+                }
+                
+                let html = '';
+                activities.forEach(activity => {
+                    const timeAgo = formatTimeAgo(activity.timestamp);
+                    
+                    html += `
+                        <div class="timeline-item">
+                            <div class="timeline-date">${timeAgo}</div>
+                            <div class="timeline-content">
+                                <strong>${escapeHtml(activity.action.replace('_', ' ').toUpperCase())}</strong>
+                                <p class="mb-0 small text-muted">${escapeHtml(activity.details || '')}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                timeline.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading activity:', error);
+            }
+        }
+
+        function loadAchievements() {
+            const container = document.getElementById('achievements-container');
+            const stats = userData?.stats || {};
+            
+            const achievements = [];
+            
+            if (stats.personalTasksCompleted >= 10) {
+                achievements.push({ name: 'Task Master', icon: '🎯' });
+            }
+            if (stats.teamTasksCompleted >= 5) {
+                achievements.push({ name: 'Team Player', icon: '👥' });
+            }
+            if (stats.groupsCreated >= 1) {
+                achievements.push({ name: 'Leader', icon: '👑' });
+            }
+            
+            if (achievements.length === 0) {
+                container.innerHTML = '<p class="text-muted small">Complete tasks to earn achievements</p>';
+                return;
+            }
+            
+            let html = '';
+            achievements.forEach(ach => {
+                html += `<span class="achievement-badge"><i class="bi bi-award"></i> ${ach.name}</span>`;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function loadSkills() {
+            const container = document.getElementById('skills-container');
+            const skills = userData?.skills || [];
+            
+            if (skills.length === 0) {
+                container.innerHTML = '<span class="badge bg-secondary p-2">Add your first skill</span>';
+                return;
+            }
+            
+            let html = '';
+            skills.forEach(skill => {
+                html += `<span class="badge bg-primary p-2">${escapeHtml(skill.name)} (${skill.level})</span>`;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function setupProfileListeners() {
+            document.getElementById('logout-btn').addEventListener('click', logoutUser);
+            
+            // Edit profile
+            document.getElementById('edit-profile-btn').addEventListener('click', () => {
+                const modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+                
+                // Pre-fill form
+                const form = document.getElementById('edit-profile-form');
+                form.displayName.value = userData?.displayName || '';
+                form.phone.value = userData?.phone || '';
+                form.location.value = userData?.location || '';
+                form.timezone.value = userData?.timezone || 'UTC';
+                form.bio.value = userData?.bio || '';
+                form.github.value = userData?.github || '';
+                form.linkedin.value = userData?.linkedin || '';
+                form.twitter.value = userData?.twitter || '';
+                
+                modal.show();
+            });
+            
+            // Edit profile form submit
+            document.getElementById('edit-profile-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(e.target);
+                const updates = {
+                    displayName: formData.get('displayName'),
+                    phone: formData.get('phone'),
+                    location: formData.get('location'),
+                    timezone: formData.get('timezone'),
+                    bio: formData.get('bio'),
+                    github: formData.get('github'),
+                    linkedin: formData.get('linkedin'),
+                    twitter: formData.get('twitter'),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                try {
+                    await firebase.firestore().collection('users').doc(currentUser.uid).update(updates);
+                    
+                    // Update local userData
+                    Object.assign(userData, updates);
+                    
+                    // Refresh display
+                    updateBasicInfo();
+                    
+                    bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
+                    Notiflix.Notify.success('Profile updated successfully');
+                    
+                } catch (error) {
+                    console.error('Error updating profile:', error);
+                    Notiflix.Notify.failure('Failed to update profile');
+                }
+            });
+            
+            // Avatar upload
+            document.getElementById('upload-avatar-btn').addEventListener('click', () => {
+                document.getElementById('avatar-input').click();
+            });
+            
+            document.getElementById('avatar-input').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    Notiflix.Loading.standard('Uploading avatar...');
+                    
+                    // Upload to Cloudinary
+                    const result = await cloudinaryUploader.uploadFile(file, 'avatars');
+                    
+                    // Update Firestore
+                    await firebase.firestore().collection('users').doc(currentUser.uid).update({
+                        avatar: result.url,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    // Update local data
+                    userData.avatar = result.url;
+                    
+                    // Refresh avatar
+                    updateBasicInfo();
+                    
+                    Notiflix.Loading.remove();
+                    Notiflix.Notify.success('Avatar updated successfully');
+                    
+                } catch (error) {
+                    Notiflix.Loading.remove();
+                    console.error('Error uploading avatar:', error);
+                    Notiflix.Notify.failure('Failed to upload avatar');
+                }
+            });
+            
+            // Add skill
+            document.getElementById('add-skill-btn').addEventListener('click', () => {
+                new bootstrap.Modal(document.getElementById('addSkillModal')).show();
+            });
+            
+            document.getElementById('add-skill-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(e.target);
+                const skill = {
+                    name: formData.get('skill'),
+                    level: formData.get('level'),
+                    addedAt: new Date().toISOString()
+                };
+                
+                try {
+                    const skills = userData?.skills || [];
+                    skills.push(skill);
+                    
+                    await firebase.firestore().collection('users').doc(currentUser.uid).update({
+                        skills: skills
+                    });
+                    
+                    userData.skills = skills;
+                    
+                    // Refresh skills display
+                    loadSkills();
+                    
+                    bootstrap.Modal.getInstance(document.getElementById('addSkillModal')).hide();
+                    e.target.reset();
+                    
+                    Notiflix.Notify.success('Skill added successfully');
+                    
+                } catch (error) {
+                    console.error('Error adding skill:', error);
+                    Notiflix.Notify.failure('Failed to add skill');
+                }
+            });
+        }
+
+        function getRoleColor(role) {
+            switch (role) {
+                case 'admin': return 'danger';
+                case 'lead': return 'warning';
+                case 'member': return 'success';
+                default: return 'secondary';
+            }
+        }
+
+        // Helper for escaping HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
