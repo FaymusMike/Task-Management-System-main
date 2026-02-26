@@ -117,31 +117,67 @@ function getReadableAuthError(error) {
 
 async function loginUser(email, password) {
     ensureFirebaseReady();
+    
     try {
+        // Set persistence
         await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        
+        // Sign in
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
         
-        // Check if email needs verification
+        console.log('Login successful for:', currentUser.email);
+        
+        // Check email verification (optional - you can disable this in Firebase Console)
         if (!currentUser.emailVerified) {
-            await currentUser.sendEmailVerification();
-            await firebase.auth().signOut();
-            throw new Error('Email not verified. We sent a new verification link to your inbox.');
+            // You can comment this out if you don't want email verification
+            // await currentUser.sendEmailVerification();
+            // await firebase.auth().signOut();
+            // throw new Error('Please verify your email before logging in.');
         }
-
+        
         // Load user data (with error handling)
         try {
             await loadUserData();
         } catch (loadError) {
-            console.warn('Could not load full user data, continuing with basic data:', loadError);
+            console.warn('Could not load user data, but login successful:', loadError);
+            // Create basic user data
+            userData = {
+                id: currentUser.uid,
+                email: currentUser.email,
+                displayName: currentUser.displayName || currentUser.email.split('@')[0],
+                role: 'member',
+                settings: { theme: 'light' }
+            };
         }
-
-        // Check role and redirect
-        await checkUserRoleAndRedirect(currentUser.uid);
+        
+        // Show success message
+        Notiflix.Notify.success('Login successful! Redirecting...', { timeout: 1500 });
+        
+        // Redirect after short delay
+        setTimeout(() => {
+            checkUserRoleAndRedirect(currentUser.uid);
+        }, 1500);
         
         return userCredential;
+        
     } catch (error) {
-        throw new Error(getReadableAuthError(error));
+        console.error('Login error:', error);
+        
+        // Handle specific error cases
+        if (error.code === 'auth/user-not-found') {
+            throw new Error('No account found with this email. Please register first.');
+        } else if (error.code === 'auth/wrong-password') {
+            throw new Error('Incorrect password. Please try again.');
+        } else if (error.code === 'auth/invalid-email') {
+            throw new Error('Invalid email format.');
+        } else if (error.code === 'auth/user-disabled') {
+            throw new Error('This account has been disabled.');
+        } else if (error.code === 'auth/too-many-requests') {
+            throw new Error('Too many failed attempts. Please try again later.');
+        } else {
+            throw new Error(error.message || 'Login failed. Please try again.');
+        }
     }
 }
 
@@ -198,61 +234,98 @@ async function registerUser(firstName, lastName, email, password) {
 
 async function loginWithGoogle() {
     ensureFirebaseReady();
+    
     try {
+        // Set persistence
         await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        
+        // Create Google provider
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
+        
+        // Sign in with popup
         const userCredential = await firebase.auth().signInWithPopup(provider);
         currentUser = userCredential.user;
         
-        // Check if user exists in Firestore
-        const userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+        console.log('Google login successful for:', currentUser.email);
         
-        if (!userDoc.exists) {
-            // Create new user document
-            const displayName = currentUser.displayName || 'User';
-            const names = displayName.split(' ');
+        // Try to load or create user data
+        try {
+            const userDoc = await firebase.firestore()
+                .collection('users')
+                .doc(currentUser.uid)
+                .get();
             
-            await firebase.firestore().collection('users').doc(currentUser.uid).set({
-                firstName: names[0] || '',
-                lastName: names.slice(1).join(' ') || '',
+            if (!userDoc.exists) {
+                // Create new user document
+                const displayName = currentUser.displayName || 'User';
+                const names = displayName.split(' ');
+                
+                const newUser = {
+                    firstName: names[0] || '',
+                    lastName: names.slice(1).join(' ') || '',
+                    email: currentUser.email,
+                    displayName: displayName,
+                    role: 'member',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    settings: {
+                        theme: 'light',
+                        notifications: true
+                    }
+                };
+                
+                await firebase.firestore()
+                    .collection('users')
+                    .doc(currentUser.uid)
+                    .set(newUser);
+                    
+                userData = newUser;
+                userData.id = currentUser.uid;
+            } else {
+                // Update last login
+                await firebase.firestore()
+                    .collection('users')
+                    .doc(currentUser.uid)
+                    .update({
+                        lastLogin: new Date().toISOString()
+                    });
+                
+                userData = userDoc.data();
+                userData.id = userDoc.id;
+            }
+        } catch (firestoreError) {
+            console.warn('Firestore error, but login successful:', firestoreError);
+            // Create basic user data
+            userData = {
+                id: currentUser.uid,
                 email: currentUser.email,
-                displayName: displayName,
+                displayName: currentUser.displayName || currentUser.email.split('@')[0],
                 role: 'member',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-                stats: {
-                    personalTasksCreated: 0,
-                    personalTasksCompleted: 0,
-                    teamTasksCreated: 0,
-                    teamTasksCompleted: 0,
-                    groupsCreated: 0,
-                    groupsManaged: 0
-                },
-                achievements: {
-                    tasksCreated: 0,
-                    tasksCompleted: 0,
-                    groupsLed: 0
-                },
-                settings: {
-                    theme: 'light',
-                    notifications: true,
-                    emailNotifications: true
-                }
-            });
-        } else {
-            // Update last login
-            await firebase.firestore().collection('users').doc(currentUser.uid).update({
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-            });
+                settings: { theme: 'light' }
+            };
         }
         
-        await loadUserData();
-        await checkUserRoleAndRedirect(currentUser.uid);
+        // Show success message
+        Notiflix.Notify.success('Login successful! Redirecting...', { timeout: 1500 });
+        
+        // Redirect after short delay
+        setTimeout(() => {
+            checkUserRoleAndRedirect(currentUser.uid);
+        }, 1500);
         
         return userCredential;
+        
     } catch (error) {
-        throw new Error(getReadableAuthError(error));
+        console.error('Google login error:', error);
+        
+        if (error.code === 'auth/popup-closed-by-user') {
+            throw new Error('Sign-in popup was closed. Please try again.');
+        } else if (error.code === 'auth/popup-blocked') {
+            throw new Error('Pop-up was blocked. Please allow pop-ups for this site.');
+        } else {
+            throw new Error(error.message || 'Google login failed');
+        }
     }
 }
 
