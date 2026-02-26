@@ -1,6 +1,9 @@
 // app.js - Complete modified version
+firebase.firestore().collection('users').limit(1).get()
+  .then(() => console.log('✅ Firestore READ working!'))
+  .catch(err => console.error('❌ Firestore READ still failing:', err));
 
-// ==================== FIREBASE READY CHECK ====================
+  // ==================== FIREBASE READY CHECK ====================
 (function() {
     // Wait for Firebase to be ready
     function waitForFirebase(maxAttempts = 50) {
