@@ -7,10 +7,17 @@
   status = 200
 
 [build.environment]
-  FIREBASE_API_KEY = "AIzaSyBkHqKsQMpZ6cAxdseAf5xV9uor8kM-1eA"
-  FIREBASE_AUTH_DOMAIN = "taskme-f16bf.firebaseapp.com"
-  FIREBASE_PROJECT_ID = "taskme-f16bf"
-  # Add other environment variables
+  FIREBASE_API_KEY = "AIzaSyC4Z8gKWDczVJRzlRVF8VUIb-dJQvMPyMI"
+  FIREBASE_AUTH_DOMAIN = "taskme-a59e5.firebaseapp.com"
+  FIREBASE_DATABASE_URL = "https://taskme-a59e5-default-rtdb.firebaseio.com"
+  FIREBASE_PROJECT_ID = "taskme-a59e5"
+  FIREBASE_STORAGE_BUCKET = "taskme-a59e5.firebasestorage.app"
+  FIREBASE_MESSAGING_SENDER_ID = "1006542214874"
+  FIREBASE_APP_ID = "1:1006542214874:web:b740e7d14a9615ce19b7e3"
+  ADMIN_SECRET_KEY = "TASKFLOW_ADMIN_SECRET_2024"
+  CLOUDINARY_CLOUD_NAME = "dftjnisn5"
+  CLOUDINARY_API_KEY = "222912194324751"
+  CLOUDINARY_UPLOAD_PRESET = "taskflow_uploads"
 
 [[headers]]
   for = "/*"

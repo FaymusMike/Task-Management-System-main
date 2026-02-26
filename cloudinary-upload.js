@@ -1,4 +1,4 @@
-// cloudinary-upload.js - Fixed with check for existing declaration
+// cloudinary-upload.js - Fixed with correct API key
 (function() {
     // Check if already defined
     if (window.CloudinaryUploader) {
@@ -9,7 +9,7 @@
     class CloudinaryUploader {
         constructor() {
             this.cloudName = 'dftjnisn5';
-            this.apiKey = '222912194324751';
+            this.apiKey = 'WvIDkozCs3FfW0KBAiLMliiKo50'; // YOUR CORRECT API KEY
             this.uploadPreset = 'taskflow_uploads';
             this.uploadUrl = `https://api.cloudinary.com/v1_1/${this.cloudName}/upload`;
         }

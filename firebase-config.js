@@ -1,7 +1,7 @@
-// firebase-config.js - Fixed version
+// firebase-config.js - Fixed with proper initialization
 (function() {
     const REQUIRED_FIELDS = [
-        'apiKey', 'authDomain', 'projectId', 
+        'apiKey', 'authDomain', 'projectId', 'databaseURL',
         'storageBucket', 'messagingSenderId', 'appId'
     ];
 
@@ -12,62 +12,46 @@
         );
     }
 
-    // Get config from various sources
-    function getConfig() {
-        // Priority 1: window.__FIREBASE_CONFIG__
-        if (isValidConfig(window.__FIREBASE_CONFIG__)) {
-            return window.__FIREBASE_CONFIG__;
-        }
-        
-        // Priority 2: window.__FIREBASE_CONFIG_JSON__
-        try {
-            if (window.__FIREBASE_CONFIG_JSON__) {
-                const parsed = JSON.parse(window.__FIREBASE_CONFIG_JSON__);
-                if (isValidConfig(parsed)) return parsed;
-            }
-        } catch (e) {
-            console.warn('Failed to parse __FIREBASE_CONFIG_JSON__');
-        }
-        
-        // Priority 3: Local storage (for development)
-        try {
-            const stored = localStorage.getItem('firebaseConfig');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                if (isValidConfig(parsed)) return parsed;
-            }
-        } catch (e) {}
-        
-        return null;
-    }
-
-    const config = getConfig();
+    // Get config from window (set in init.js)
+    const config = window.__FIREBASE_CONFIG__;
     
     // Initialize Firebase
-    if (typeof firebase !== 'undefined' && firebase.apps.length === 0) {
-        if (isValidConfig(config)) {
-            firebase.initializeApp(config);
-            window.__FIREBASE_READY__ = true;
-            console.log('Firebase initialized successfully');
-            
-            // Enable offline persistence for Firestore
-            firebase.firestore().enablePersistence()
-                .catch(err => {
-                    if (err.code === 'failed-precondition') {
-                        console.warn('Multiple tabs open, persistence disabled');
-                    } else if (err.code === 'unimplemented') {
-                        console.warn('Browser doesn\'t support persistence');
-                    }
-                });
+    if (typeof firebase !== 'undefined') {
+        if (firebase.apps.length === 0) {
+            if (isValidConfig(config)) {
+                firebase.initializeApp(config);
+                
+                // Initialize Realtime Database
+                const database = firebase.database();
+                
+                window.__FIREBASE_READY__ = true;
+                console.log('✅ Firebase initialized successfully with Realtime DB');
+                
+                // Enable offline persistence for Firestore
+                firebase.firestore().enablePersistence()
+                    .then(() => console.log('✅ Firestore persistence enabled'))
+                    .catch(err => {
+                        if (err.code === 'failed-precondition') {
+                            console.warn('⚠️ Multiple tabs open, persistence disabled');
+                        } else if (err.code === 'unimplemented') {
+                            console.warn('⚠️ Browser doesn\'t support persistence');
+                        }
+                    });
+            } else {
+                console.error(
+                    '%c❌ Firebase Configuration Error\n' +
+                    '==========================\n' +
+                    'Valid Firebase configuration not found.',
+                    'color: red; font-weight: bold; font-size: 14px;'
+                );
+                window.__FIREBASE_READY__ = false;
+            }
         } else {
-            console.error(
-                '%cFirebase Configuration Error\n' +
-                '==========================\n' +
-                'Valid Firebase configuration not found.\n' +
-                'Please set window.__FIREBASE_CONFIG__ before loading this script.',
-                'color: red; font-weight: bold; font-size: 14px;'
-            );
-            window.__FIREBASE_READY__ = false;
+            console.log('✅ Firebase already initialized');
+            window.__FIREBASE_READY__ = true;
         }
+    } else {
+        console.error('❌ Firebase SDK not loaded');
+        window.__FIREBASE_READY__ = false;
     }
 })();

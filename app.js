@@ -1595,3 +1595,48 @@ window.showNotification = showNotification;
 window.isPublicPage = isPublicPage;
 window.isProtectedPage = isProtectedPage;
 window.getCurrentPage = getCurrentPage;
+
+
+// ==================== REALTIME DATABASE INTEGRATION ====================
+
+// Initialize presence when user logs in
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        // Initialize presence manager
+        if (window.presenceManager) {
+            window.presenceManager.initialize(user.uid);
+        }
+        
+        // Subscribe to realtime updates for tasks (if needed)
+        setupRealtimeTaskListeners(user.uid);
+    } else {
+        // Cleanup presence
+        if (window.presenceManager) {
+            window.presenceManager.cleanup();
+        }
+    }
+});
+
+function setupRealtimeTaskListeners(userId) {
+    if (!userId || !firebase.database) return;
+    
+    const db = firebase.database();
+    const tasksRef = db.ref('tasks');
+    
+    // Listen for high-priority updates via Realtime DB
+    tasksRef.orderByChild('priority').equalTo('urgent').on('child_added', (snapshot) => {
+        const task = snapshot.val();
+        if (task.assigneeIds && task.assigneeIds.includes(userId)) {
+            // Show urgent task notification
+            Notiflix.Notify.warning(`Urgent task assigned: ${task.title}`, {
+                timeout: 5000,
+                clickToClose: true
+            });
+        }
+    });
+    
+    // Store cleanup function
+    window.__realtimeCleanup = () => {
+        tasksRef.off();
+    };
+}
