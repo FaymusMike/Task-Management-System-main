@@ -1,6 +1,6 @@
 // init.js - Load this FIRST in all HTML files
 (function() {
-    // Load Firebase configuration from environment or local
+    // Load Firebase configuration
     window.__FIREBASE_CONFIG__ = {
         apiKey: "AIzaSyC4Z8gKWDczVJRzlRVF8VUIb-dJQvMPyMI",
         authDomain: "taskme-a59e5.firebaseapp.com",
@@ -11,7 +11,7 @@
         appId: "1:1006542214874:web:b740e7d14a9615ce19b7e3"
     };
     
-    // Admin secret key (store securely in production)
+    // Admin secret key (you can change this)
     window.__ADMIN_SECRET__ = "TASKFLOW_ADMIN_SECRET_2024";
     
     console.log('✅ Firebase configuration loaded for project: taskme-a59e5');

@@ -1,7 +1,9 @@
-// firebase-config.js - Fixed with proper initialization
+// firebase-config.js - Fixed with proper SDK loading
 (function() {
+    console.log('🔥 Firebase config loading...');
+    
     const REQUIRED_FIELDS = [
-        'apiKey', 'authDomain', 'projectId', 'databaseURL',
+        'apiKey', 'authDomain', 'projectId', 
         'storageBucket', 'messagingSenderId', 'appId'
     ];
 
@@ -19,13 +21,19 @@
     if (typeof firebase !== 'undefined') {
         if (firebase.apps.length === 0) {
             if (isValidConfig(config)) {
+                // Initialize core Firebase
                 firebase.initializeApp(config);
                 
-                // Initialize Realtime Database
-                const database = firebase.database();
+                // Check if Realtime Database is available
+                if (firebase.database) {
+                    const database = firebase.database();
+                    console.log('✅ Realtime Database initialized');
+                } else {
+                    console.warn('⚠️ Realtime Database SDK not loaded');
+                }
                 
                 window.__FIREBASE_READY__ = true;
-                console.log('✅ Firebase initialized successfully with Realtime DB');
+                console.log('✅ Firebase initialized successfully');
                 
                 // Enable offline persistence for Firestore
                 firebase.firestore().enablePersistence()

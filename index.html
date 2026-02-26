@@ -193,6 +193,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <!-- Second: Configuration -->
     <script src="init.js"></script>
@@ -253,6 +254,25 @@
             });
         }
     });
+    </script>
+    <script>
+        // Suppress MetaMask errors
+        window.addEventListener('error', function(e) {
+            if (e.message && e.message.includes('MetaMask')) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        });
+        
+        // Also suppress unhandled promise rejections from MetaMask
+        window.addEventListener('unhandledrejection', function(e) {
+            if (e.reason && e.reason.message && e.reason.message.includes('MetaMask')) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        });
     </script>
 </body>
 </html>

@@ -179,6 +179,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <!-- Second: Configuration -->
     <script src="init.js"></script>
@@ -194,8 +195,23 @@
     <!-- Fifth: App scripts -->
     <script src="cloudinary-upload.js"></script>
     <script src="app.js"></script>
-
     <script>
+        // Add this at the top of your login page script
+        window.addEventListener('load', function() {
+            // Check if Firebase is ready
+            if (!window.__FIREBASE_READY__) {
+                console.warn('Firebase not ready, waiting...');
+                // Try again after 1 second
+                setTimeout(() => {
+                    if (window.__FIREBASE_READY__) {
+                        console.log('Firebase ready now');
+                    } else {
+                        Notiflix.Notify.warning('Firebase is loading. Please wait...');
+                    }
+                }, 1000);
+            }
+        });
+
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('login-form');
         const email = document.getElementById('email');
@@ -254,6 +270,25 @@
             }
         });
     });
+    </script>
+    <script>
+        // Suppress MetaMask errors
+        window.addEventListener('error', function(e) {
+            if (e.message && e.message.includes('MetaMask')) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        });
+        
+        // Also suppress unhandled promise rejections from MetaMask
+        window.addEventListener('unhandledrejection', function(e) {
+            if (e.reason && e.reason.message && e.reason.message.includes('MetaMask')) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        });
     </script>
 </body>
 </html>

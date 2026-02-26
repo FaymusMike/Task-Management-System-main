@@ -10,16 +10,25 @@
         }
         
         initialize(userId) {
-            if (!userId || !firebase.database) return;
+            if (!userId) return;
+            
+            // Check if Realtime Database is available
+            if (!firebase.database) {
+                console.log('Realtime Database not available, presence disabled');
+                return;
+            }
             
             this.userId = userId;
-            this.database = firebase.database();
             
-            // Get references
-            this.presenceRef = this.database.ref('.info/connected');
-            this.userStatusRef = this.database.ref(`userStatus/${userId}`);
-            
-            this.setupPresence();
+            try {
+                this.database = firebase.database();
+                this.presenceRef = this.database.ref('.info/connected');
+                this.userStatusRef = this.database.ref(`userStatus/${userId}`);
+                
+                this.setupPresence();
+            } catch (error) {
+                console.warn('Could not initialize presence:', error);
+            }
         }
         
         setupPresence() {
@@ -30,22 +39,23 @@
                     // User is connected
                     this.userStatusRef.set({
                         status: 'online',
-                        lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                        lastSeen: Date.now(),
                         userId: this.userId
                     });
                     
                     // Set up disconnect hook
                     this.userStatusRef.onDisconnect().set({
                         status: 'offline',
-                        lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                        lastSeen: Date.now(),
                         userId: this.userId
                     });
                     
                     this.isConnected = true;
                 } else {
-                    // User is disconnected
                     this.isConnected = false;
                 }
+            }, (error) => {
+                console.warn('Presence error:', error);
             });
         }
         
@@ -54,12 +64,19 @@
             
             this.userStatusRef.update({
                 status: status,
-                lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                lastSeen: Date.now(),
                 ...metadata
+            }).catch(error => {
+                console.warn('Could not update status:', error);
             });
         }
         
         getOnlineUsers(callback) {
+            if (!this.database) {
+                callback([]);
+                return () => {};
+            }
+            
             const usersRef = this.database.ref('userStatus');
             
             usersRef.on('value', (snapshot) => {
@@ -74,9 +91,11 @@
                     }
                 });
                 callback(users);
+            }, (error) => {
+                console.warn('Could not get online users:', error);
+                callback([]);
             });
             
-            // Return cleanup function
             return () => usersRef.off();
         }
         
@@ -88,9 +107,9 @@
                 this.userStatusRef.off();
                 this.userStatusRef.set({
                     status: 'offline',
-                    lastSeen: firebase.database.ServerValue.TIMESTAMP,
+                    lastSeen: Date.now(),
                     userId: this.userId
-                });
+                }).catch(() => {});
             }
         }
     }

@@ -1599,6 +1599,19 @@ window.getCurrentPage = getCurrentPage;
 
 // ==================== REALTIME DATABASE INTEGRATION ====================
 
+// Check if Realtime Database is available
+if (typeof firebase !== 'undefined' && !firebase.database) {
+    console.warn('⚠️ Firebase Realtime Database not available. Presence features disabled.');
+    
+    // Create dummy presence manager
+    window.presenceManager = {
+        initialize: () => {},
+        updateStatus: () => {},
+        getOnlineUsers: (callback) => { callback([]); return () => {}; },
+        cleanup: () => {}
+    };
+}
+
 // Initialize presence when user logs in
 firebase.auth().onAuthStateChanged((user) => {
     if (user) {
