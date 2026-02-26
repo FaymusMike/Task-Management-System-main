@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Authentication</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+    <h2>Firebase Authentication Test</h2>
+    <div id="status">Testing...</div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4Z8gKWDczVJRzlRVF8VUIb-dJQvMPyMI",
+            authDomain: "taskme-a59e5.firebaseapp.com",
+            projectId: "taskme-a59e5",
+            storageBucket: "taskme-a59e5.firebasestorage.app",
+            messagingSenderId: "1006542214874",
+            appId: "1:1006542214874:web:b740e7d14a9615ce19b7e3"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+
+        async function testAuth() {
+            const statusDiv = document.getElementById('status');
+            
+            try {
+                // Test anonymous sign-in first
+                statusDiv.innerHTML = 'Testing anonymous auth...';
+                const anonymousResult = await firebase.auth().signInAnonymously();
+                statusDiv.innerHTML += '<br>✅ Anonymous auth successful';
+                
+                // Test Firestore write
+                statusDiv.innerHTML += '<br>Testing Firestore write...';
+                const testRef = firebase.firestore().collection('test').doc('test');
+                await testRef.set({ 
+                    timestamp: new Date().toISOString(),
+                    userId: anonymousResult.user.uid 
+                });
+                statusDiv.innerHTML += '<br>✅ Firestore write successful';
+                
+                // Test Firestore read
+                statusDiv.innerHTML += '<br>Testing Firestore read...';
+                await testRef.get();
+                statusDiv.innerHTML += '<br>✅ Firestore read successful';
+                
+                // Clean up
+                await testRef.delete();
+                await anonymousResult.user.delete();
+                
+                statusDiv.innerHTML += '<br><br>🎉 All tests passed! Firebase is working correctly.';
+                
+            } catch (error) {
+                statusDiv.innerHTML += `<br>❌ Error: ${error.message}`;
+                console.error('Test failed:', error);
+            }
+        }
+
+        testAuth();
+    </script>
+</body>
+</html>

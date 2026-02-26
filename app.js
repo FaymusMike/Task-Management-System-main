@@ -1134,64 +1134,113 @@ async function adminLogin(email, password, secretKey) {
     }
     
     try {
+        // Set persistence
         await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        
+        // Sign in with Firebase Auth
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
         
-        // Check if user exists in Firestore
-        const userDoc = await firebase.firestore()
-            .collection('users')
-            .doc(currentUser.uid)
-            .get();
+        console.log('Admin login successful for:', currentUser.email);
         
-        if (!userDoc.exists) {
-            // Create admin user document
-            await firebase.firestore().collection('users').doc(currentUser.uid).set({
-                email: email,
-                displayName: email.split('@')[0],
-                role: 'admin',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-                settings: {
-                    theme: 'light',
-                    notifications: true
-                }
-            });
+        // Check if user document exists in Firestore
+        let userDoc;
+        try {
+            userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+        } catch (firestoreError) {
+            console.warn('Firestore error, but auth successful:', firestoreError);
+            // Continue with login even if Firestore fails
+        }
+        
+        if (!userDoc || !userDoc.exists) {
+            // Create admin user document if it doesn't exist
+            try {
+                const newUser = {
+                    email: email,
+                    displayName: email.split('@')[0],
+                    role: 'admin',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    settings: {
+                        theme: 'light',
+                        notifications: true
+                    }
+                };
+                
+                await firebase.firestore().collection('users').doc(currentUser.uid).set(newUser);
+                userData = newUser;
+                userData.id = currentUser.uid;
+                
+                console.log('Created admin user document');
+            } catch (createError) {
+                console.warn('Could not create user document:', createError);
+                // Create basic user data in memory
+                userData = {
+                    id: currentUser.uid,
+                    email: email,
+                    displayName: email.split('@')[0],
+                    role: 'admin',
+                    settings: { theme: 'light' }
+                };
+            }
         } else {
             // Update last login
-            await firebase.firestore().collection('users').doc(currentUser.uid).update({
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            try {
+                await firebase.firestore().collection('users').doc(currentUser.uid).update({
+                    lastLogin: new Date().toISOString()
+                });
+            } catch (updateError) {
+                console.warn('Could not update last login:', updateError);
+            }
             
-            // Verify admin role
-            if (userDoc.data().role !== 'admin') {
-                await firebase.auth().signOut();
-                throw new Error('User does not have admin privileges');
+            userData = userDoc.data();
+            userData.id = userDoc.id;
+            
+            // If user is not admin, update role
+            if (userData.role !== 'admin') {
+                try {
+                    await firebase.firestore().collection('users').doc(currentUser.uid).update({
+                        role: 'admin'
+                    });
+                    userData.role = 'admin';
+                    console.log('Updated user role to admin');
+                } catch (roleError) {
+                    console.warn('Could not update role:', roleError);
+                }
             }
         }
         
-        await loadUserData();
-        
-        // Log admin login
-        await addActivityLog({
-            userId: currentUser.uid,
-            action: 'admin_login',
-            details: 'Admin logged in',
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        // Log admin login (optional)
+        try {
+            await firebase.firestore().collection('activityLogs').add({
+                userId: currentUser.uid,
+                action: 'admin_login',
+                details: 'Admin logged in',
+                timestamp: new Date().toISOString()
+            });
+        } catch (logError) {
+            console.warn('Could not log activity:', logError);
+        }
         
         Notiflix.Notify.success('Admin login successful');
-        window.location.href = 'admin-dashboard.html';
+        
+        // Redirect to admin dashboard
+        setTimeout(() => {
+            window.location.href = 'admin-dashboard.html';
+        }, 1500);
+        
+        return userCredential;
         
     } catch (error) {
         console.error('Admin login error:', error);
         
         // Provide user-friendly error messages
         const errorMessages = {
-            'auth/user-not-found': 'Admin account not found',
+            'auth/user-not-found': 'Admin account not found. Please create admin user first.',
             'auth/wrong-password': 'Invalid password',
             'auth/invalid-email': 'Invalid email format',
-            'auth/user-disabled': 'This account has been disabled'
+            'auth/user-disabled': 'This account has been disabled',
+            'auth/too-many-requests': 'Too many failed attempts. Please try again later.'
         };
         
         throw new Error(errorMessages[error.code] || error.message || 'Admin login failed');

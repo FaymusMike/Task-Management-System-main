@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Admin User</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+</head>
+<body>
+    <h2>Create Admin User</h2>
+    <form id="create-admin-form">
+        <input type="email" id="email" placeholder="Admin Email" value="admin@taskflow.com"><br>
+        <input type="password" id="password" placeholder="Password" value="Admin123!"><br>
+        <input type="text" id="secret" placeholder="Admin Secret" value="TASKFLOW_ADMIN_SECRET_2024"><br>
+        <button type="submit">Create Admin</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        // Your Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4Z8gKWDczVJRzlRVF8VUIb-dJQvMPyMI",
+            authDomain: "taskme-a59e5.firebaseapp.com",
+            projectId: "taskme-a59e5",
+            storageBucket: "taskme-a59e5.firebasestorage.app",
+            messagingSenderId: "1006542214874",
+            appId: "1:1006542214874:web:b740e7d14a9615ce19b7e3"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+
+        document.getElementById('create-admin-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const secret = document.getElementById('secret').value;
+            const resultDiv = document.getElementById('result');
+            
+            // Check admin secret
+            if (secret !== 'TASKFLOW_ADMIN_SECRET_2024') {
+                resultDiv.innerHTML = '❌ Invalid admin secret';
+                return;
+            }
+            
+            try {
+                // Create user in Firebase Auth
+                const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                // Create user document in Firestore with admin role
+                await firebase.firestore().collection('users').doc(user.uid).set({
+                    email: email,
+                    displayName: 'Admin User',
+                    role: 'admin',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    settings: {
+                        theme: 'light',
+                        notifications: true
+                    }
+                });
+                
+                resultDiv.innerHTML = `✅ Admin user created successfully!<br>Email: ${email}<br>UID: ${user.uid}`;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

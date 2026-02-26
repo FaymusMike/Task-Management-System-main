@@ -192,21 +192,31 @@
         try {
             await waitForFirebase();
         } catch (error) {
+            console.error('Firebase initialization failed:', error);
             Notiflix.Notify.failure('Firebase initialization failed. Please refresh the page.');
             return;
         }
         
-        // Check if user is already logged in as admin
+        // Check if user is already logged in
         firebase.auth().onAuthStateChanged(async (user) => {
             if (user) {
+                console.log('Already logged in:', user.email);
                 try {
+                    // Check if user has admin role
                     const userDoc = await firebase.firestore()
                         .collection('users')
                         .doc(user.uid)
                         .get();
                         
-                    if (userDoc.exists && userDoc.data().role === 'admin') {
-                        window.location.href = 'admin-dashboard.html';
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        if (userData.role === 'admin') {
+                            window.location.href = 'admin-dashboard.html';
+                        } else {
+                            // Not admin, sign out
+                            await firebase.auth().signOut();
+                            Notiflix.Notify.info('Please login with admin credentials');
+                        }
                     }
                 } catch (error) {
                     console.error('Auth check error:', error);
@@ -228,15 +238,98 @@
                 return;
             }
             
+            // Validate admin secret
+            const validSecret = window.__ADMIN_SECRET__ || 'TASKFLOW_ADMIN_SECRET_2024';
+            if (secretKey !== validSecret) {
+                Notiflix.Notify.failure('Invalid admin secret key');
+                return;
+            }
+            
             // Show loading state
             adminLoginText.style.display = 'none';
             adminLoginSpinner.style.display = 'inline-block';
             adminLoginBtn.disabled = true;
             
             try {
-                await adminLogin(email, password, secretKey);
+                // Sign in with Firebase Auth
+                const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                // Check if user has admin role in Firestore
+                let userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                
+                if (!userDoc.exists) {
+                    // Create user document if it doesn't exist
+                    await firebase.firestore().collection('users').doc(user.uid).set({
+                        email: email,
+                        displayName: email.split('@')[0],
+                        role: 'admin', // Set as admin
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+                        settings: {
+                            theme: 'light',
+                            notifications: true
+                        }
+                    });
+                    console.log('Created admin user document');
+                } else {
+                    const userData = userDoc.data();
+                    
+                    // If user exists but is not admin, update to admin
+                    if (userData.role !== 'admin') {
+                        await firebase.firestore().collection('users').doc(user.uid).update({
+                            role: 'admin',
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log('Updated user role to admin');
+                    }
+                    
+                    // Update last login
+                    await firebase.firestore().collection('users').doc(user.uid).update({
+                        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+                
+                // Log admin login
+                try {
+                    await firebase.firestore().collection('activityLogs').add({
+                        userId: user.uid,
+                        action: 'admin_login',
+                        details: 'Admin logged in',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (logError) {
+                    console.warn('Could not log activity:', logError);
+                }
+                
+                Notiflix.Notify.success('Admin login successful! Redirecting...');
+                
+                // Redirect to admin dashboard
+                setTimeout(() => {
+                    window.location.href = 'admin-dashboard.html';
+                }, 1500);
+                
             } catch (error) {
-                Notiflix.Notify.failure(error.message || 'Admin login failed');
+                console.error('Admin login error:', error);
+                
+                // Handle specific error cases
+                let errorMessage = 'Admin login failed';
+                
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Admin account not found. Please create admin user first.';
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Invalid password';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Invalid email format';
+                } else if (error.code === 'auth/user-disabled') {
+                    errorMessage = 'This account has been disabled';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMessage = 'Too many failed attempts. Please try again later.';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                Notiflix.Notify.failure(errorMessage);
             } finally {
                 adminLoginText.style.display = 'inline';
                 adminLoginSpinner.style.display = 'none';
