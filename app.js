@@ -366,7 +366,7 @@ async function loadUserData() {
                 id: currentUser.uid,
                 email: currentUser.email,
                 displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-                role: 'member',
+                role: 'member', // ALWAYS member by default, not admin
                 settings: {
                     theme: localStorage.getItem('theme') || 'light',
                     notifications: true
@@ -399,20 +399,16 @@ async function loadUserData() {
         } else {
             console.log('User document does not exist, creating...');
             
-            // Determine role - check if this is an admin login
+            // IMPORTANT: Never auto-assign admin role
+            // Always create as member
             let role = 'member';
-            
-            // Check if this email might be an admin (you can add logic here)
-            if (currentUser.email && currentUser.email.includes('admin')) {
-                role = 'admin';
-            }
             
             // Create default user data if document doesn't exist
             userData = {
                 id: currentUser.uid,
                 email: currentUser.email,
                 displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-                role: role,
+                role: role, // ALWAYS member
                 createdAt: new Date().toISOString(),
                 lastLogin: new Date().toISOString(),
                 settings: {
@@ -473,7 +469,7 @@ async function loadUserData() {
             id: currentUser.uid,
             email: currentUser.email,
             displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-            role: 'member',
+            role: 'member', // ALWAYS member
             settings: {
                 theme: localStorage.getItem('theme') || 'light'
             }
@@ -1167,78 +1163,14 @@ async function adminLogin(email, password, secretKey) {
         
         console.log('Admin login successful for:', currentUser.email);
         
-        // Ensure user document exists with admin role
-        try {
-            const userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
-            
-            if (!userDoc.exists) {
-                // Create admin user document
-                console.log('Creating admin user document...');
-                const adminData = {
-                    email: email,
-                    displayName: email.split('@')[0],
-                    role: 'admin',
-                    createdAt: new Date().toISOString(),
-                    lastLogin: new Date().toISOString(),
-                    settings: {
-                        theme: 'light',
-                        notifications: true
-                    }
-                };
-                
-                await firebase.firestore().collection('users').doc(currentUser.uid).set(adminData);
-                userData = adminData;
-                userData.id = currentUser.uid;
-                console.log('Admin user document created');
-            } else {
-                // Update existing user to admin if needed
-                const existingData = userDoc.data();
-                if (existingData.role !== 'admin') {
-                    console.log('Updating user role to admin...');
-                    await firebase.firestore().collection('users').doc(currentUser.uid).update({
-                        role: 'admin',
-                        lastLogin: new Date().toISOString()
-                    });
-                } else {
-                    await firebase.firestore().collection('users').doc(currentUser.uid).update({
-                        lastLogin: new Date().toISOString()
-                    });
-                }
-                
-                userData = userDoc.data();
-                userData.id = userDoc.id;
-                userData.role = 'admin'; // Ensure role is admin
-            }
-        } catch (firestoreError) {
-            console.warn('Firestore error during admin login:', firestoreError);
-            // Create in-memory user data
-            userData = {
-                id: currentUser.uid,
-                email: email,
-                displayName: email.split('@')[0],
-                role: 'admin',
-                settings: { theme: 'light' }
-            };
-        }
+        // IMPORTANT: Don't try to access Firestore immediately
+        // Let the auth state observer handle the redirect
         
-        // Log admin login
-        try {
-            await firebase.firestore().collection('activityLogs').add({
-                userId: currentUser.uid,
-                action: 'admin_login',
-                details: 'Admin logged in',
-                timestamp: new Date().toISOString()
-            });
-        } catch (logError) {
-            console.warn('Could not log activity:', logError);
-        }
-        
+        // Just show success message
         Notiflix.Notify.success('Admin login successful! Redirecting...');
         
-        // Force redirect to admin dashboard
-        setTimeout(() => {
-            window.location.href = 'admin-dashboard.html';
-        }, 1500);
+        // The redirect will be handled by the auth state observer
+        // No need to redirect here
         
         return userCredential;
         
@@ -1257,7 +1189,6 @@ async function adminLogin(email, password, secretKey) {
         throw new Error(errorMessages[error.code] || error.message || 'Admin login failed');
     }
 }
-
 async function getUsersList(limit = 100) {
     try {
         const snapshot = await firebase.firestore()
@@ -1518,7 +1449,6 @@ async function uploadMultipleFiles(files, taskId = null) {
     return Promise.all(uploadPromises);
 }
 
-// ==================== INITIALIZATION ====================
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize theme from localStorage

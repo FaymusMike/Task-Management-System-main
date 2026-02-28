@@ -305,13 +305,37 @@
         });
         
         async function verifyAdminAccess() {
-            if (!currentUser || userData?.role !== 'admin') {
-                Notiflix.Notify.failure('Access denied. Admin privileges required.');
+            // Wait for userData to be loaded
+            let attempts = 0;
+            while (!userData && attempts < 30) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            if (!currentUser) {
+                Notiflix.Notify.failure('Please login first');
                 setTimeout(() => {
                     window.location.href = 'login.html';
-                }, 2000);
+                }, 1500);
+                throw new Error('No user logged in');
+            }
+            
+            if (!userData || userData.role !== 'admin') {
+                Notiflix.Notify.failure('Access denied. Admin privileges required.');
+                
+                // Sign out if not admin
+                if (currentUser) {
+                    await firebase.auth().signOut();
+                }
+                
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 1500);
                 throw new Error('Admin access required');
             }
+            
+            console.log('✅ Admin access verified for:', userData.email);
+            return true;
         }
         
         async function loadAdminDashboardData() {
