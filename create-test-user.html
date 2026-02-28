@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Test User</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+</head>
+<body>
+    <h2>Create Test User</h2>
+    <div id="result"></div>
+    
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4Z8gKWDczVJRzlRVF8VUIb-dJQvMPyMI",
+            authDomain: "taskme-a59e5.firebaseapp.com",
+            projectId: "taskme-a59e5",
+            storageBucket: "taskme-a59e5.firebasestorage.app",
+            messagingSenderId: "1006542214874",
+            appId: "1:1006542214874:web:b740e7d14a9615ce19b7e3"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+
+        async function createTestUser() {
+            const email = 'test@example.com';
+            const password = 'Test123!';
+            
+            try {
+                // Create user in Firebase Auth
+                const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                // Create user document in Firestore
+                await firebase.firestore().collection('users').doc(user.uid).set({
+                    email: email,
+                    displayName: 'Test User',
+                    role: 'member',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    settings: {
+                        theme: 'light',
+                        notifications: true
+                    }
+                });
+                
+                document.getElementById('result').innerHTML = `
+                    <p style="color: green;">✅ Test user created successfully!</p>
+                    <p>Email: ${email}</p>
+                    <p>Password: ${password}</p>
+                    <p>UID: ${user.uid}</p>
+                `;
+                
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <p style="color: red;">❌ Error: ${error.message}</p>
+                `;
+            }
+        }
+
+        createTestUser();
+    </script>
+</body>
+</html>

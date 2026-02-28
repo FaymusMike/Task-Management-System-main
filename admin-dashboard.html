@@ -286,6 +286,8 @@
     <!-- Fourth: Other libraries -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/notiflix@3.2.6/dist/notiflix-aio-3.2.6.min.js"></script>
+    <!-- Add this with other CSS CDNs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
     <!-- Fifth: App scripts -->
     <script src="cloudinary-upload.js"></script>
@@ -345,16 +347,30 @@
                 updateAdminStats(users);
                 renderRecentUsers(users.slice(0, 10));
                 
-                // Load other data
-                await loadSystemHealth();
-                await loadSystemLogs();
+                // Load system health (with error handling)
+                try {
+                    await loadSystemHealth();
+                } catch (healthError) {
+                    console.warn('Could not load system health:', healthError);
+                }
                 
-                // Initialize charts
-                initializeRoleChart(users);
+                // Load system logs (with error handling)
+                try {
+                    await loadSystemLogs();
+                } catch (logsError) {
+                    console.warn('Could not load system logs:', logsError);
+                }
+                
+                // Initialize charts (with error handling)
+                try {
+                    initializeRoleChart(users);
+                } catch (chartError) {
+                    console.warn('Could not initialize chart:', chartError);
+                }
                 
             } catch (error) {
                 console.error('Error loading admin data:', error);
-                showNotification('Failed to load admin dashboard data', 'error');
+                Notiflix.Notify.failure('Failed to load admin dashboard data');
             }
         }
         
@@ -420,14 +436,29 @@
         }
         
         function initializeRoleChart(users) {
-            const ctx = document.getElementById('role-chart').getContext('2d');
+            const canvas = document.getElementById('role-chart');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Check if Chart is defined
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js not loaded yet');
+                return;
+            }
+            
             const roleCounts = {
                 admin: users.filter(u => u.role === 'admin').length,
                 lead: users.filter(u => u.role === 'lead').length,
                 member: users.filter(u => u.role === 'member').length
             };
             
-            new Chart(ctx, {
+            // Destroy existing chart if it exists
+            if (window.roleChart instanceof Chart) {
+                window.roleChart.destroy();
+            }
+            
+            window.roleChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: ['Admins', 'Team Leads', 'Members'],
@@ -443,6 +474,7 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
                             position: 'bottom'

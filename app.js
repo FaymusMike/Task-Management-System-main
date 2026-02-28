@@ -1022,6 +1022,7 @@ async function loadNotifications() {
         // Try without orderBy first to avoid index errors
         let snapshot;
         try {
+            // Try with orderBy (requires index)
             snapshot = await firebase.firestore()
                 .collection('notifications')
                 .where('userId', '==', currentUser.uid)
@@ -1029,12 +1030,12 @@ async function loadNotifications() {
                 .limit(50)
                 .get();
         } catch (indexError) {
-            console.warn('Index not ready, falling back to unordered query');
-            // Fallback to unordered query
+            console.warn('Index not ready for notifications, using simple query');
+            
+            // Fallback: Get all notifications and sort client-side
             snapshot = await firebase.firestore()
                 .collection('notifications')
                 .where('userId', '==', currentUser.uid)
-                .limit(50)
                 .get();
             
             // Sort manually
@@ -1042,11 +1043,13 @@ async function loadNotifications() {
                 id: doc.id,
                 ...doc.data()
             }));
+            
             notifications = docs.sort((a, b) => {
-                const dateA = a.createdAt?.toDate?.() || new Date(0);
-                const dateB = b.createdAt?.toDate?.() || new Date(0);
+                const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+                const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
                 return dateB - dateA;
-            });
+            }).slice(0, 50);
+            
             return notifications;
         }
         
@@ -1058,7 +1061,6 @@ async function loadNotifications() {
         return notifications;
     } catch (error) {
         console.error('Error loading notifications:', error);
-        // Don't throw, just return empty array
         return [];
     }
 }
@@ -1526,63 +1528,98 @@ document.addEventListener('DOMContentLoaded', function() {
 function setupRealtimeListeners() {
     if (!currentUser || !(typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0)) return;
     
-    // Listen for task updates
-    firebase.firestore()
-        .collection('tasks')
-        .where('ownerId', '==', currentUser.uid)
-        .onSnapshot((snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                if (change.type === 'added' || change.type === 'modified') {
-                    // Update task in local array
-                    const updatedTask = {
-                        id: change.doc.id,
-                        ...change.doc.data()
-                    };
-                    
-                    const index = tasks.findIndex(t => t.id === updatedTask.id);
-                    if (index !== -1) {
-                        tasks[index] = updatedTask;
-                    } else {
-                        tasks.push(updatedTask);
+    // Listen for task updates with error handling
+    try {
+        firebase.firestore()
+            .collection('tasks')
+            .where('ownerId', '==', currentUser.uid)
+            .onSnapshot((snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added' || change.type === 'modified') {
+                        const updatedTask = {
+                            id: change.doc.id,
+                            ...change.doc.data()
+                        };
+                        
+                        const index = tasks.findIndex(t => t.id === updatedTask.id);
+                        if (index !== -1) {
+                            tasks[index] = updatedTask;
+                        } else {
+                            tasks.push(updatedTask);
+                        }
+                        
+                        if (typeof window.renderTasks === 'function') {
+                            window.renderTasks(tasks);
+                        }
                     }
                     
-                    // Trigger UI update
-                    if (typeof window.renderTasks === 'function') {
-                        window.renderTasks(tasks);
+                    if (change.type === 'removed') {
+                        tasks = tasks.filter(t => t.id !== change.doc.id);
+                        
+                        if (typeof window.renderTasks === 'function') {
+                            window.renderTasks(tasks);
+                        }
                     }
-                }
-                
-                if (change.type === 'removed') {
-                    tasks = tasks.filter(t => t.id !== change.doc.id);
-                    
-                    // Trigger UI update
-                    if (typeof window.renderTasks === 'function') {
-                        window.renderTasks(tasks);
-                    }
-                }
+                });
+            }, (error) => {
+                console.warn('Error in tasks snapshot listener:', error);
             });
-        });
+    } catch (error) {
+        console.warn('Could not set up tasks listener:', error);
+    }
     
-    // Listen for notifications
-    firebase.firestore()
-        .collection('notifications')
-        .where('userId', '==', currentUser.uid)
-        .orderBy('createdAt', 'desc')
-        .limit(10)
-        .onSnapshot((snapshot) => {
-            notifications = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            
-            // Update notification badge
-            const unreadCount = notifications.filter(n => !n.read).length;
-            const badge = document.getElementById('notification-badge');
-            if (badge) {
-                badge.textContent = unreadCount;
-                badge.style.display = unreadCount > 0 ? 'flex' : 'none';
-            }
-        });
+    // Listen for notifications with error handling and index fallback
+    try {
+        // Try with orderBy first (requires index)
+        firebase.firestore()
+            .collection('notifications')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .limit(10)
+            .onSnapshot((snapshot) => {
+                notifications = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                const unreadCount = notifications.filter(n => !n.read).length;
+                const badge = document.getElementById('notification-badge');
+                if (badge) {
+                    badge.textContent = unreadCount;
+                    badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+                }
+            }, async (error) => {
+                console.warn('Ordered notifications query failed, falling back:', error);
+                
+                // Fallback: without orderBy
+                firebase.firestore()
+                    .collection('notifications')
+                    .where('userId', '==', currentUser.uid)
+                    .limit(10)
+                    .onSnapshot((snapshot) => {
+                        const docs = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data()
+                        }));
+                        
+                        // Sort client-side
+                        notifications = docs.sort((a, b) => {
+                            const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+                            const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+                            return dateB - dateA;
+                        });
+                        
+                        const unreadCount = notifications.filter(n => !n.read).length;
+                        const badge = document.getElementById('notification-badge');
+                        if (badge) {
+                            badge.textContent = unreadCount;
+                            badge.style.display = unreadCount > 0 ? 'flex' : 'none';
+                        }
+                    });
+            });
+    } catch (error) {
+        console.warn('Could not set up notifications listener:', error);
+    }
 }
 
 // ==================== GLOBAL EXPORTS ====================
