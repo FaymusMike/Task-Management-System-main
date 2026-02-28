@@ -358,8 +358,9 @@ async function loadUserData() {
         let userDoc;
         try {
             userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+            console.log('User doc exists:', userDoc.exists);
         } catch (userError) {
-            console.warn('Could not fetch user document, using default values:', userError);
+            console.warn('Could not fetch user document:', userError);
             // Create default user data
             userData = {
                 id: currentUser.uid,
@@ -385,14 +386,35 @@ async function loadUserData() {
         if (userDoc.exists) {
             userData = userDoc.data();
             userData.id = userDoc.id;
+            console.log('User role from Firestore:', userData.role);
+            
+            // Update last login
+            try {
+                await firebase.firestore().collection('users').doc(currentUser.uid).update({
+                    lastLogin: new Date().toISOString()
+                });
+            } catch (updateError) {
+                console.warn('Could not update last login:', updateError);
+            }
         } else {
+            console.log('User document does not exist, creating...');
+            
+            // Determine role - check if this is an admin login
+            let role = 'member';
+            
+            // Check if this email might be an admin (you can add logic here)
+            if (currentUser.email && currentUser.email.includes('admin')) {
+                role = 'admin';
+            }
+            
             // Create default user data if document doesn't exist
             userData = {
                 id: currentUser.uid,
                 email: currentUser.email,
                 displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-                role: 'member',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                role: role,
+                createdAt: new Date().toISOString(),
+                lastLogin: new Date().toISOString(),
                 settings: {
                     theme: localStorage.getItem('theme') || 'light',
                     notifications: true
@@ -410,6 +432,7 @@ async function loadUserData() {
             // Try to create the document
             try {
                 await firebase.firestore().collection('users').doc(currentUser.uid).set(userData);
+                console.log('User document created with role:', role);
             } catch (createError) {
                 console.warn('Could not create user document:', createError);
             }
@@ -430,7 +453,7 @@ async function loadUserData() {
         }
         
         // Load teams (with error handling)
-        if (userData.role === 'lead' || userData.role === 'member') {
+        if (userData.role === 'lead' || userData.role === 'member' || userData.role === 'admin') {
             try {
                 await loadTeams();
             } catch (teamsError) {
@@ -1134,28 +1157,24 @@ async function adminLogin(email, password, secretKey) {
     }
     
     try {
-        // Set persistence
+        // Set persistence to LOCAL to stay logged in
         await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         
         // Sign in with Firebase Auth
+        console.log('Attempting admin login for:', email);
         const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
         currentUser = userCredential.user;
         
         console.log('Admin login successful for:', currentUser.email);
         
-        // Check if user document exists in Firestore
-        let userDoc;
+        // Ensure user document exists with admin role
         try {
-            userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
-        } catch (firestoreError) {
-            console.warn('Firestore error, but auth successful:', firestoreError);
-            // Continue with login even if Firestore fails
-        }
-        
-        if (!userDoc || !userDoc.exists) {
-            // Create admin user document if it doesn't exist
-            try {
-                const newUser = {
+            const userDoc = await firebase.firestore().collection('users').doc(currentUser.uid).get();
+            
+            if (!userDoc.exists) {
+                // Create admin user document
+                console.log('Creating admin user document...');
+                const adminData = {
                     email: email,
                     displayName: email.split('@')[0],
                     role: 'admin',
@@ -1167,50 +1186,42 @@ async function adminLogin(email, password, secretKey) {
                     }
                 };
                 
-                await firebase.firestore().collection('users').doc(currentUser.uid).set(newUser);
-                userData = newUser;
+                await firebase.firestore().collection('users').doc(currentUser.uid).set(adminData);
+                userData = adminData;
                 userData.id = currentUser.uid;
-                
-                console.log('Created admin user document');
-            } catch (createError) {
-                console.warn('Could not create user document:', createError);
-                // Create basic user data in memory
-                userData = {
-                    id: currentUser.uid,
-                    email: email,
-                    displayName: email.split('@')[0],
-                    role: 'admin',
-                    settings: { theme: 'light' }
-                };
-            }
-        } else {
-            // Update last login
-            try {
-                await firebase.firestore().collection('users').doc(currentUser.uid).update({
-                    lastLogin: new Date().toISOString()
-                });
-            } catch (updateError) {
-                console.warn('Could not update last login:', updateError);
-            }
-            
-            userData = userDoc.data();
-            userData.id = userDoc.id;
-            
-            // If user is not admin, update role
-            if (userData.role !== 'admin') {
-                try {
+                console.log('Admin user document created');
+            } else {
+                // Update existing user to admin if needed
+                const existingData = userDoc.data();
+                if (existingData.role !== 'admin') {
+                    console.log('Updating user role to admin...');
                     await firebase.firestore().collection('users').doc(currentUser.uid).update({
-                        role: 'admin'
+                        role: 'admin',
+                        lastLogin: new Date().toISOString()
                     });
-                    userData.role = 'admin';
-                    console.log('Updated user role to admin');
-                } catch (roleError) {
-                    console.warn('Could not update role:', roleError);
+                } else {
+                    await firebase.firestore().collection('users').doc(currentUser.uid).update({
+                        lastLogin: new Date().toISOString()
+                    });
                 }
+                
+                userData = userDoc.data();
+                userData.id = userDoc.id;
+                userData.role = 'admin'; // Ensure role is admin
             }
+        } catch (firestoreError) {
+            console.warn('Firestore error during admin login:', firestoreError);
+            // Create in-memory user data
+            userData = {
+                id: currentUser.uid,
+                email: email,
+                displayName: email.split('@')[0],
+                role: 'admin',
+                settings: { theme: 'light' }
+            };
         }
         
-        // Log admin login (optional)
+        // Log admin login
         try {
             await firebase.firestore().collection('activityLogs').add({
                 userId: currentUser.uid,
@@ -1222,9 +1233,9 @@ async function adminLogin(email, password, secretKey) {
             console.warn('Could not log activity:', logError);
         }
         
-        Notiflix.Notify.success('Admin login successful');
+        Notiflix.Notify.success('Admin login successful! Redirecting...');
         
-        // Redirect to admin dashboard
+        // Force redirect to admin dashboard
         setTimeout(() => {
             window.location.href = 'admin-dashboard.html';
         }, 1500);
@@ -1508,6 +1519,7 @@ async function uploadMultipleFiles(files, taskId = null) {
 }
 
 // ==================== INITIALIZATION ====================
+// ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize theme from localStorage
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -1525,34 +1537,54 @@ document.addEventListener('DOMContentLoaded', function() {
         const isProtected = isProtectedPage();
         
         if (user) {
+            console.log(`User logged in: ${user.email} on ${currentPage}`);
             currentUser = user;
-            await loadUserData();
             
-            // Update UI based on role
-            updateUIForRole();
-            
-            // Set up real-time listeners if on dashboard
-            if (window.location.pathname.includes('dashboard') || 
-                window.location.pathname.includes('admin')) {
-                setupRealtimeListeners();
-            }
-            
-            console.log(`User logged in on ${currentPage} (Public: ${isPublic})`);
-            
-            // Only auto-redirect if on login/register pages and user is already logged in
-            if (currentPage === 'login.html' || currentPage === 'register.html') {
-                console.log('On auth page with logged in user - showing dashboard option');
+            // Load user data with better error handling
+            try {
+                await loadUserData();
+                console.log('User data loaded successfully:', userData);
                 
-                // We'll let the page scripts handle showing dashboard button
-                // Don't auto-redirect, just update UI
+                // Update UI based on role
+                updateUIForRole();
+                
+                // Set up real-time listeners if on dashboard
+                if (window.location.pathname.includes('dashboard') || 
+                    window.location.pathname.includes('admin')) {
+                    setupRealtimeListeners();
+                }
+                
+                // Handle redirection based on page
+                if (currentPage === 'login.html' || currentPage === 'register.html') {
+                    console.log('On auth page with logged in user - redirecting based on role');
+                    
+                    // Small delay to ensure userData is loaded
+                    setTimeout(() => {
+                        if (userData && userData.role === 'admin') {
+                            window.location.href = 'admin-dashboard.html';
+                        } else {
+                            window.location.href = 'dashboard.html';
+                        }
+                    }, 1000);
+                }
+                
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                
+                // Still try to redirect based on auth
+                if (currentPage === 'login.html' || currentPage === 'register.html') {
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1000);
+                }
             }
             
         } else {
             // User is signed out
             console.log(`User signed out on ${currentPage} (Protected: ${isProtected})`);
             
-            // Only redirect to login if on a protected page
-            if (isProtected) {
+            // Only redirect to login if on a protected page AND not on login/register pages
+            if (isProtected && !isPublic && currentPage !== 'login.html' && currentPage !== 'register.html') {
                 console.log('Protected page accessed without login, redirecting to login...');
                 window.location.href = 'login.html';
             }

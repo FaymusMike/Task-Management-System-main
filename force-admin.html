@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Force Admin</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+</head>
+<body>
+    <h2>Force Admin Status</h2>
+    <div id="status"></div>
+    <button onclick="checkAndFixAdmin()">Check and Fix Admin</button>
+    <button onclick="forceAdmin()">Force Make Me Admin</button>
+    <button onclick="logout()">Logout</button>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4Z8gKWDczVJRzlRVF8VUIb-dJQvMPyMI",
+            authDomain: "taskme-a59e5.firebaseapp.com",
+            projectId: "taskme-a59e5",
+            storageBucket: "taskme-a59e5.firebasestorage.app",
+            messagingSenderId: "1006542214874",
+            appId: "1:1006542214874:web:b740e7d14a9615ce19b7e3"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const statusDiv = document.getElementById('status');
+
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (user) {
+                statusDiv.innerHTML += `<p>✅ Logged in as: ${user.email}</p>`;
+                await checkAdminStatus(user);
+            } else {
+                statusDiv.innerHTML = '<p>❌ Not logged in</p>';
+            }
+        });
+
+        async function checkAdminStatus(user) {
+            try {
+                const doc = await firebase.firestore().collection('users').doc(user.uid).get();
+                if (doc.exists) {
+                    statusDiv.innerHTML += `<p>User role: ${doc.data().role}</p>`;
+                } else {
+                    statusDiv.innerHTML += '<p>⚠️ No user document found</p>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML += `<p>❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkAndFixAdmin() {
+            const user = firebase.auth().currentUser;
+            if (!user) {
+                statusDiv.innerHTML += '<p>❌ Please login first</p>';
+                return;
+            }
+
+            try {
+                const doc = await firebase.firestore().collection('users').doc(user.uid).get();
+                
+                if (!doc.exists) {
+                    await firebase.firestore().collection('users').doc(user.uid).set({
+                        email: user.email,
+                        displayName: user.email.split('@')[0],
+                        role: 'admin',
+                        createdAt: new Date().toISOString(),
+                        lastLogin: new Date().toISOString(),
+                        settings: { theme: 'light' }
+                    });
+                    statusDiv.innerHTML += '<p>✅ Created user document with admin role</p>';
+                } else if (doc.data().role !== 'admin') {
+                    await firebase.firestore().collection('users').doc(user.uid).update({
+                        role: 'admin'
+                    });
+                    statusDiv.innerHTML += '<p>✅ Updated user role to admin</p>';
+                } else {
+                    statusDiv.innerHTML += '<p>✅ User already has admin role</p>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML += `<p>❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function forceAdmin() {
+            const user = firebase.auth().currentUser;
+            if (!user) {
+                statusDiv.innerHTML += '<p>❌ Please login first</p>';
+                return;
+            }
+
+            try {
+                await firebase.firestore().collection('users').doc(user.uid).set({
+                    email: user.email,
+                    displayName: user.email.split('@')[0],
+                    role: 'admin',
+                    createdAt: new Date().toISOString(),
+                    lastLogin: new Date().toISOString(),
+                    settings: { theme: 'light' }
+                }, { merge: true });
+                
+                statusDiv.innerHTML += '<p>✅ Force set admin role</p>';
+                
+                // Redirect to admin dashboard
+                setTimeout(() => {
+                    window.location.href = 'admin-dashboard.html';
+                }, 1000);
+            } catch (error) {
+                statusDiv.innerHTML += `<p>❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        function logout() {
+            firebase.auth().signOut().then(() => {
+                window.location.href = 'login.html';
+            });
+        }
+    </script>
+</body>
+</html>
