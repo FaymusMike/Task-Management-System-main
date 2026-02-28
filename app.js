@@ -1127,12 +1127,36 @@ async function getActivityLogs(limit = 50) {
     if (!currentUser) return [];
     
     try {
-        const snapshot = await firebase.firestore()
-            .collection('activityLogs')
-            .where('userId', '==', currentUser.uid)
-            .orderBy('timestamp', 'desc')
-            .limit(limit)
-            .get();
+        // Try with orderBy first
+        let snapshot;
+        try {
+            snapshot = await firebase.firestore()
+                .collection('activityLogs')
+                .where('userId', '==', currentUser.uid)
+                .orderBy('timestamp', 'desc')
+                .limit(limit)
+                .get();
+        } catch (indexError) {
+            console.warn('Index not ready for activityLogs, using simple query');
+            
+            // Fallback: Get all and sort client-side
+            snapshot = await firebase.firestore()
+                .collection('activityLogs')
+                .where('userId', '==', currentUser.uid)
+                .get();
+            
+            const docs = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // Sort manually by timestamp
+            return docs.sort((a, b) => {
+                const dateA = a.timestamp?.toDate?.() || new Date(a.timestamp || 0);
+                const dateB = b.timestamp?.toDate?.() || new Date(b.timestamp || 0);
+                return dateB - dateA;
+            }).slice(0, limit);
+        }
         
         return snapshot.docs.map(doc => ({
             id: doc.id,
@@ -1525,6 +1549,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ==================== REALTIME LISTENERS ====================
+// ==================== REALTIME LISTENERS ====================
 function setupRealtimeListeners() {
     if (!currentUser || !(typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0)) return;
     
@@ -1568,7 +1593,7 @@ function setupRealtimeListeners() {
         console.warn('Could not set up tasks listener:', error);
     }
     
-    // Listen for notifications with error handling and index fallback
+    // Listen for notifications with error handling
     try {
         // Try with orderBy first (requires index)
         firebase.firestore()
@@ -1582,12 +1607,7 @@ function setupRealtimeListeners() {
                     ...doc.data()
                 }));
                 
-                const unreadCount = notifications.filter(n => !n.read).length;
-                const badge = document.getElementById('notification-badge');
-                if (badge) {
-                    badge.textContent = unreadCount;
-                    badge.style.display = unreadCount > 0 ? 'flex' : 'none';
-                }
+                updateNotificationBadge();
             }, async (error) => {
                 console.warn('Ordered notifications query failed, falling back:', error);
                 
@@ -1609,16 +1629,21 @@ function setupRealtimeListeners() {
                             return dateB - dateA;
                         });
                         
-                        const unreadCount = notifications.filter(n => !n.read).length;
-                        const badge = document.getElementById('notification-badge');
-                        if (badge) {
-                            badge.textContent = unreadCount;
-                            badge.style.display = unreadCount > 0 ? 'flex' : 'none';
-                        }
+                        updateNotificationBadge();
                     });
             });
     } catch (error) {
         console.warn('Could not set up notifications listener:', error);
+    }
+}
+
+// Helper function to update notification badge
+function updateNotificationBadge() {
+    const unreadCount = notifications.filter(n => !n.read).length;
+    const badge = document.getElementById('notification-badge');
+    if (badge) {
+        badge.textContent = unreadCount;
+        badge.style.display = unreadCount > 0 ? 'flex' : 'none';
     }
 }
 

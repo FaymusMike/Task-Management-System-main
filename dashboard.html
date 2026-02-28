@@ -560,7 +560,9 @@
                 const activities = await getActivityLogs(10);
                 const container = document.getElementById('recent-activity');
                 
-                if (activities.length === 0) {
+                if (!container) return;
+                
+                if (!activities || activities.length === 0) {
                     container.innerHTML = '<p class="text-muted text-center py-4">No recent activity</p>';
                     return;
                 }
@@ -571,7 +573,7 @@
                     html += `
                         <div class="activity-item">
                             <div class="d-flex justify-content-between">
-                                <strong>${escapeHtml(activity.action.replace('_', ' ').toUpperCase())}</strong>
+                                <strong>${escapeHtml(activity.action?.replace('_', ' ').toUpperCase() || 'ACTION')}</strong>
                                 <small class="activity-time">${timeAgo}</small>
                             </div>
                             <div class="small text-muted">${escapeHtml(activity.details || '')}</div>
@@ -582,6 +584,10 @@
                 container.innerHTML = html;
             } catch (error) {
                 console.error('Error loading activity:', error);
+                const container = document.getElementById('recent-activity');
+                if (container) {
+                    container.innerHTML = '<p class="text-muted text-center py-4">Unable to load activity</p>';
+                }
             }
         }
         
